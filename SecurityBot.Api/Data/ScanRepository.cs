@@ -104,6 +104,90 @@ public class ScanRepository
         return ReadRow(reader);
     }
 
+    // Hydrates the FINDINGS of the most recent scan for a target — by
+    // agent_address when one is supplied, else by base_url. This backs the
+    // watch tier's per-tick diff (WatchWorker): the previous tick's open
+    // findings are compared against the fresh re-scan. Returns an empty list
+    // when the target has never been scanned (the first watch tick treats every
+    // currently-open finding as newly-opened, which is the correct semantics).
+    //
+    // The two-step (find scan id, then read its findings) is intentional: the
+    // findings join would otherwise duplicate the scan row per finding, and the
+    // most-recent-scan selection (ORDER BY scanned_at DESC LIMIT 1) is cleanest
+    // against the scans table alone. Both reads run on the same connection.
+    public async Task<IReadOnlyList<Finding>> GetMostRecentFindingsAsync(string? agentAddress, string baseUrl)
+    {
+        await using var conn = _db.OpenConnection();
+
+        long scanId;
+        await using (var findCmd = conn.CreateCommand())
+        {
+            if (!string.IsNullOrEmpty(agentAddress))
+            {
+                findCmd.CommandText = @"
+                    SELECT id FROM scans
+                    WHERE agent_address = $a
+                    ORDER BY scanned_at DESC
+                    LIMIT 1";
+                findCmd.Parameters.AddWithValue("$a", agentAddress);
+            }
+            else
+            {
+                findCmd.CommandText = @"
+                    SELECT id FROM scans
+                    WHERE base_url = $u
+                    ORDER BY scanned_at DESC
+                    LIMIT 1";
+                findCmd.Parameters.AddWithValue("$u", baseUrl);
+            }
+            var idObj = await findCmd.ExecuteScalarAsync();
+            if (idObj is null || idObj is DBNull) return Array.Empty<Finding>();
+            scanId = (long)idObj;
+        }
+
+        var findings = new List<Finding>();
+        await using (var fcmd = conn.CreateCommand())
+        {
+            fcmd.CommandText = @"
+                SELECT pattern_id, severity, verdict, evidence_json, fix_ref
+                FROM scan_findings
+                WHERE scan_id = $id";
+            fcmd.Parameters.AddWithValue("$id", scanId);
+            await using var reader = await fcmd.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
+            {
+                var patternId = reader.GetString(0);
+                var severity = Enum.Parse<Severity>(reader.GetString(1), ignoreCase: true);
+                var verdict = Enum.Parse<Verdict>(reader.GetString(2), ignoreCase: true);
+                var evidence = ParseEvidence(reader.GetString(3));
+                var fixRef = reader.GetString(4);
+                // Title is not persisted (it's a constant of the check, not of
+                // the scan); reuse the patternId as the title for the diff —
+                // WatchDiff only reads PatternId + Verdict, so this is lossless
+                // for the watch path.
+                findings.Add(new Finding(patternId, patternId, severity, verdict, evidence, fixRef));
+            }
+        }
+        return findings;
+    }
+
+    // evidence_json is the small JSON wrapper {"text":"..."} written by
+    // InsertAsync. Unwrap back to the bare Evidence string; tolerate a legacy /
+    // malformed value by returning it verbatim rather than throwing.
+    private static string ParseEvidence(string evidenceJson)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(evidenceJson);
+            if (doc.RootElement.ValueKind == JsonValueKind.Object &&
+                doc.RootElement.TryGetProperty("text", out var t) &&
+                t.ValueKind == JsonValueKind.String)
+                return t.GetString() ?? string.Empty;
+        }
+        catch (JsonException) { /* fall through to verbatim */ }
+        return evidenceJson;
+    }
+
     private static ScanRecord ReadRow(SqliteDataReader r) => new ScanRecord(
         AgentAddress: r.IsDBNull(0) ? null : r.GetString(0),
         BaseUrl: r.GetString(1),

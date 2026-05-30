@@ -2,6 +2,8 @@ using System.Net.Http;
 using System.Security.Cryptography;
 using System.Text;
 using SecurityBot.Api.Data;
+using SecurityBot.Api.Engine;
+using SecurityBot.Api.Engine.Checks;
 using SecurityBot.Api.Middleware;
 using SecurityBot.Api.Models;
 using SecurityBot.Api.Services;
@@ -16,6 +18,30 @@ builder.Services.AddSingleton<Db>();
 builder.Services.AddSingleton<WebhookSecretCipher>();   // AES-GCM at rest for webhook_secret (audit F3)
 builder.Services.AddSingleton<SubscriptionRepository>();
 builder.Services.AddSingleton<SubscriptionRunRepository>();
+builder.Services.AddSingleton<ScanRepository>();
+
+// Audit engine — the scan pipeline the WatchWorker re-runs each tick. The
+// outbound probe client is the most-hardened HTTP client in the bot (SSRF
+// classifier refuses private/loopback/reserved targets). Each of the 8 checks
+// is a stateless IProbeCheck; the engine runs every registered one over a
+// single probe-once pass. corpusVersion is the pattern-catalogue date stamp
+// recorded on each persisted scan. The scan endpoint (Task 11) resolves the
+// SAME DynamicAuditEngine singleton.
+builder.Services.AddSingleton<ProbeClient>();
+builder.Services.AddSingleton<IProbeFetcher>(sp => sp.GetRequiredService<ProbeClient>());
+builder.Services.AddSingleton<IProbeCheck, AuthPostureCheck>();
+builder.Services.AddSingleton<IProbeCheck, ErrorLeakCheck>();
+builder.Services.AddSingleton<IProbeCheck, RateLimitHintCheck>();
+builder.Services.AddSingleton<IProbeCheck, RawDumpCheck>();
+builder.Services.AddSingleton<IProbeCheck, ResourceDisclosureCheck>();
+builder.Services.AddSingleton<IProbeCheck, SchemaDescriptionCheck>();
+builder.Services.AddSingleton<IProbeCheck, SecurityHeadersCheck>();
+builder.Services.AddSingleton<IProbeCheck, TlsTransportCheck>();
+const string CorpusVersion = "2026-05-30";
+builder.Services.AddSingleton(sp => new DynamicAuditEngine(
+    sp.GetRequiredService<IProbeFetcher>(),
+    sp.GetServices<IProbeCheck>(),
+    CorpusVersion));
 
 // Services
 builder.Services.AddSingleton<SubscriptionService>();
@@ -38,8 +64,7 @@ builder.Services.AddHttpClient<WebhookDeliveryService>()
 builder.Services.AddHttpClient<InJobStreamDeliveryService>();
 
 // Hosted workers
-// TODO Task 9: replace TickSchedulerWorker with WatchWorker
-// builder.Services.AddHostedService<TickSchedulerWorker>();
+builder.Services.AddHostedService<WatchWorker>();
 builder.Services.AddHostedService<RetryWorker>();
 
 builder.Services.AddOpenApi();
