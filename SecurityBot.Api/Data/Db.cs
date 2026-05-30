@@ -81,7 +81,45 @@ public class Db
                 last_error      TEXT,
                 UNIQUE(subscription_id, tick_number)
             );
-            CREATE INDEX IF NOT EXISTS ix_runs_retry ON subscription_runs(delivery_status, next_attempt_at);";
+            CREATE INDEX IF NOT EXISTS ix_runs_retry ON subscription_runs(delivery_status, next_attempt_at);
+
+            CREATE TABLE IF NOT EXISTS scans (
+                id                INTEGER PRIMARY KEY AUTOINCREMENT,
+                agent_address     TEXT,
+                base_url          TEXT NOT NULL,
+                resolved_via      TEXT NOT NULL,
+                score             INTEGER NOT NULL,
+                grade             TEXT NOT NULL,
+                observable_count  INTEGER NOT NULL,
+                finding_count     INTEGER NOT NULL,
+                verdict           TEXT NOT NULL,
+                corpus_version    TEXT NOT NULL,
+                scanned_at        TEXT NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS ix_scans_agent ON scans(agent_address);
+            CREATE INDEX IF NOT EXISTS ix_scans_scanned ON scans(scanned_at);
+
+            CREATE TABLE IF NOT EXISTS scan_findings (
+                id            INTEGER PRIMARY KEY AUTOINCREMENT,
+                scan_id       INTEGER NOT NULL,
+                pattern_id    TEXT NOT NULL,
+                severity      TEXT NOT NULL,
+                verdict       TEXT NOT NULL,
+                evidence_json TEXT NOT NULL,
+                fix_ref       TEXT NOT NULL,
+                FOREIGN KEY (scan_id) REFERENCES scans(id) ON DELETE CASCADE
+            );
+            CREATE INDEX IF NOT EXISTS ix_findings_scan ON scan_findings(scan_id);
+
+            CREATE TABLE IF NOT EXISTS email_log (
+                id            INTEGER PRIMARY KEY AUTOINCREMENT,
+                to_address    TEXT NOT NULL,
+                agent_address TEXT,
+                scan_id       INTEGER,
+                status        TEXT NOT NULL,
+                sent_at       TEXT NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS ix_email_agent ON email_log(agent_address);";
         await cmd.ExecuteNonQueryAsync();
 
         // Idempotent in-place migrations for databases created before PushMode
