@@ -5,7 +5,7 @@ namespace SecurityBot.Api.Engine.Checks;
 // observed HSTS is partial (the TLS-terminating edge may still emit it on other paths).
 public sealed class TlsTransportCheck : IProbeCheck
 {
-    public string PatternId => "P31";
+    public string PatternId => "P31-TLS";
     public string Title => "TLS transport and HSTS";
 
     public Task<Finding> RunAsync(ProbeContext ctx, CancellationToken ct)

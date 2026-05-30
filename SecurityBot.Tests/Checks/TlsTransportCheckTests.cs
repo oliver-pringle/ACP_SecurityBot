@@ -12,7 +12,7 @@ public class TlsTransportCheckTests
     {
         var ctx = new ProbeContext("http://x.example", new[] { Resp("health") });
         var f = await new TlsTransportCheck().RunAsync(ctx, default);
-        Assert.Equal("P31", f.PatternId);
+        Assert.Equal("P31-TLS", f.PatternId);
         Assert.Equal(Verdict.Present, f.Verdict);
         Assert.Equal(Severity.Medium, f.Severity);
     }
