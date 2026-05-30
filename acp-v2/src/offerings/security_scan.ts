@@ -21,8 +21,8 @@ export const securityScan: Offering = {
     "schema completeness, rate-limit hint) against a 49-pattern catalogue and returns " +
     "per-finding verdicts with evidence, a 0-100 score, a grade, and canonical-fix " +
     "references. Read-only and non-intrusive. Supply agentAddress (auto-resolves the " +
-    "public surface) or a baseUrl; optionally email the report to the agent's " +
-    "@agents.world inbox.",
+    "public surface) or a baseUrl; optionally email the report to a recipientEmail you " +
+    "supply (e.g. an agent's @agents.world inbox).",
   slaMinutes: 5,
 
   requirementSchema: {
@@ -44,7 +44,15 @@ export const securityScan: Offering = {
       emailReport: {
         type: "boolean",
         description:
-          "If true, also email the report to the agent's @agents.world inbox. Default false.",
+          "If true, also email the report to recipientEmail. Default false. The audited " +
+          "agent's @agents.world address is not public, so a recipient must be supplied.",
+      },
+      recipientEmail: {
+        type: "string",
+        format: "email",
+        description:
+          "Where to email the report when emailReport is true (e.g. you@example.com, or an " +
+          "agent's known <handle>@agents.world inbox). If omitted, email delivery is skipped.",
       },
     },
     required: [],
@@ -196,6 +204,13 @@ export const securityScan: Offering = {
       return { valid: false, reason: "emailReport must be a boolean" };
     }
 
+    if (req.recipientEmail !== undefined && req.recipientEmail !== null) {
+      const re = req.recipientEmail;
+      if (typeof re !== "string" || re.length > 254 || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(re)) {
+        return { valid: false, reason: "recipientEmail must be a valid email address" };
+      }
+    }
+
     return { valid: true };
   },
 
@@ -204,6 +219,7 @@ export const securityScan: Offering = {
       agentAddress: req.agentAddress as string | undefined,
       baseUrl: req.baseUrl as string | undefined,
       emailReport: req.emailReport === true,
+      recipientEmail: req.recipientEmail as string | undefined,
     });
   },
 };

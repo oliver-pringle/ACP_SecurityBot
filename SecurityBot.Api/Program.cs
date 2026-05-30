@@ -30,10 +30,32 @@ builder.Services.AddSingleton<EmailLogRepository>();
 // once at first resolution and held in memory.
 builder.Services.AddSingleton<PatternCatalogue>();
 
-// Email backend. v1 ships NoopEmailSender ("no_backend") — delivering mail to
-// a Virtuals @agents.world mailbox is a deferred research spike. Swap this one
-// registration when a real backend lands; the scan endpoint is backend-agnostic.
-builder.Services.AddSingleton<IEmailSender, NoopEmailSender>();
+// Email backend. Resend transactional sender when BOTH RESEND_API_KEY and
+// SECURITYBOT_EMAIL_FROM are configured; otherwise NoopEmailSender ("no_backend").
+// The email spike (docs/email-spike-findings.md) found @agents.world is a real
+// Mailgun/SES-backed inbox reachable by any transactional send — there is NO special
+// Virtuals send API — but the recipient is BUYER-SUPPLIED (no public agent->email
+// directory). Default-OFF: with no key the bot reports no_backend exactly as v1 did.
+// SECURITYBOT_EMAIL_FROM MUST be on a Resend-verified domain (SPF/DKIM/DMARC) or mail
+// to agents.world (Mailgun inbound) will be spam-filtered.
+var resendApiKey = builder.Configuration["RESEND_API_KEY"]
+    ?? Environment.GetEnvironmentVariable("RESEND_API_KEY");
+var emailFrom = builder.Configuration["SECURITYBOT_EMAIL_FROM"]
+    ?? Environment.GetEnvironmentVariable("SECURITYBOT_EMAIL_FROM");
+var emailEnabled = !string.IsNullOrWhiteSpace(resendApiKey) && !string.IsNullOrWhiteSpace(emailFrom);
+if (emailEnabled)
+{
+    builder.Services.AddHttpClient("resend", c => c.Timeout = TimeSpan.FromSeconds(15));
+    builder.Services.AddSingleton<IEmailSender>(sp => new ResendEmailSender(
+        sp.GetRequiredService<IHttpClientFactory>().CreateClient("resend"),
+        resendApiKey!,
+        emailFrom!,
+        sp.GetRequiredService<ILogger<ResendEmailSender>>()));
+}
+else
+{
+    builder.Services.AddSingleton<IEmailSender, NoopEmailSender>();
+}
 
 // Audit engine — the scan pipeline the WatchWorker re-runs each tick. The
 // outbound probe client is the most-hardened HTTP client in the bot (SSRF
@@ -165,6 +187,8 @@ var outreachEnabled = string.Equals(
     "true", StringComparison.OrdinalIgnoreCase);
 app.Logger.LogInformation("Outreach worker: {State} (SECURITYBOT_OUTREACH_ENABLED={Flag})",
     outreachEnabled ? "ENABLED" : "DISABLED", outreachEnabled);
+app.Logger.LogInformation("Email backend: {Backend}",
+    emailEnabled ? $"Resend ENABLED (from {emailFrom})" : "DISABLED (no_backend; set RESEND_API_KEY + SECURITYBOT_EMAIL_FROM)");
 
 if (app.Environment.IsDevelopment())
 {
@@ -508,23 +532,58 @@ app.MapPost("/v1/internal/scan", async (
             ScannedAtUtc: report.ScannedAtUtc);
         var scanId = await scanRepo.InsertAsync(rec, report.Findings);
 
-        // Optional email tier. v1 has no real source of an agent's @agents.world
-        // mailbox, so we can only attempt delivery when we have SOMETHING to send
-        // to. With no address source yet, email is "skipped". When a real backend
-        // + address source lands, derive the recipient here and call the sender.
+        // Optional email tier. The recipient is BUYER-SUPPLIED (recipientEmail). The
+        // audited agent's @agents.world inbox is a real Mailgun-backed mailbox, but its
+        // address is NOT exposed by the public V2 marketplace API so it can't be
+        // auto-resolved (see docs/email-spike-findings.md). With no valid recipient we
+        // don't call the sender — the honest status is "skipped". Otherwise the
+        // configured IEmailSender (Resend when keyed, else Noop -> "no_backend") delivers.
         string? emailDelivery = null;
         if (req.EmailReport)
         {
-            // No address resolution exists yet (research-spike deferral). With no
-            // recipient we don't call the (noop) sender — the honest status is
-            // "skipped". The email_log row records the attempt either way.
-            emailDelivery = "skipped";
-            await emailLog.InsertAsync(
-                toAddress: req.AgentAddress ?? "(unknown)",
-                agentAddress: req.AgentAddress,
-                scanId: scanId,
-                status: emailDelivery,
-                sentAt: DateTime.UtcNow);
+            var recipient = req.RecipientEmail?.Trim();
+            var hasRecipient = !string.IsNullOrEmpty(recipient)
+                && recipient!.Length <= 254
+                && System.Net.Mail.MailAddress.TryCreate(recipient, out _);
+
+            if (!hasRecipient)
+            {
+                emailDelivery = "skipped";
+                await emailLog.InsertAsync(
+                    toAddress: recipient is { Length: > 0 } ? recipient! : "(none)",
+                    agentAddress: req.AgentAddress,
+                    scanId: scanId,
+                    status: emailDelivery,
+                    sentAt: DateTime.UtcNow);
+            }
+            else
+            {
+                var emailPayload = new
+                {
+                    baseUrl = report.BaseUrl,
+                    agentAddress = report.AgentAddress,
+                    score = report.Score,
+                    grade = report.Grade,
+                    verdict = report.Verdict,
+                    summary = report.Summary,
+                    scannedAt = report.ScannedAtUtc.ToString("O"),
+                    findings = report.Findings.Select(f => new
+                    {
+                        patternId = f.PatternId,
+                        title = f.Title,
+                        severity = f.Severity.ToString(),
+                        verdict = f.Verdict.ToString(),
+                    }).ToList(),
+                };
+                var sendResult = await emailSender.SendScanReportAsync(recipient!, emailPayload, ct);
+                emailDelivery = sendResult.Status;   // sent | failed | no_backend
+                await emailLog.InsertAsync(
+                    toAddress: recipient!,
+                    agentAddress: req.AgentAddress,
+                    scanId: scanId,
+                    status: emailDelivery,
+                    sentAt: DateTime.UtcNow);
+            }
         }
 
         // Assemble the deliverable. Enum-typed Severity/Verdict are emitted as
@@ -586,7 +645,8 @@ app.Run();
 // The paid scan request body. AgentAddress / BaseUrl are reference-typed (no
 // silent-400 nullable-value gotcha); EmailReport is a bool defaulting false so a
 // body that omits it binds cleanly.
-public sealed record ScanRequest(string? AgentAddress, string? BaseUrl, bool EmailReport = false);
+public sealed record ScanRequest(
+    string? AgentAddress, string? BaseUrl, bool EmailReport = false, string? RecipientEmail = null);
 
 // Expose the implicit Program class so WebApplicationFactory<Program> can host
 // it in the endpoint tests.

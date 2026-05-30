@@ -29,7 +29,7 @@ export interface ApiClient {
   // POST /v1/internal/scan. The C# tier resolves agentAddress -> public
   // surface (or uses the explicit baseUrl), runs the passive audit, and
   // returns the scan deliverable (or a NOT_AUDITABLE envelope).
-  runScan(input: { agentAddress?: string; baseUrl?: string; emailReport?: boolean }): Promise<unknown>;
+  runScan(input: { agentAddress?: string; baseUrl?: string; emailReport?: boolean; recipientEmail?: string }): Promise<unknown>;
 }
 
 export function createApiClient(baseUrl: string, opts: { apiKey?: string } = {}): ApiClient {
