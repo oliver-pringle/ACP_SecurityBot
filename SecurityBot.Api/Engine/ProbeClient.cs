@@ -21,11 +21,16 @@ namespace SecurityBot.Api.Engine;
 // SSRF classifier can be unit-tested without sockets. SocketsHttpHandler's
 // ConnectCallback invokes it at TCP-connect time (closing the DNS-rebind TOCTOU
 // window: the address we are ABOUT to connect to is the one we classify).
-public sealed class ProbeClient : IDisposable
+public sealed class ProbeClient : IDisposable, IProbeFetcher
 {
     public const int MaxRequestsPerScan = 25;
     public const long MaxResponseBytes = 256 * 1024;
     public const int MaxRateLimitProbes = 5;
+
+    // Explicit interface member exposes the rate-limit-probe budget constant as an
+    // instance property so the engine can read it through IProbeFetcher (the public
+    // const keeps the same name, so the interface member is implemented explicitly).
+    int IProbeFetcher.MaxRateLimitProbes => MaxRateLimitProbes;
     private const string UserAgent = "ACP-SecurityBot/1.0 (passive-audit)";
 
     private static readonly IReadOnlyDictionary<string, string> EmptyHeaders =
