@@ -1,6 +1,8 @@
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
 
+[assembly: System.Runtime.CompilerServices.InternalsVisibleTo("SecurityBot.Tests")]
+
 namespace SecurityBot.Api.Resolution;
 
 // Best-effort, NON-THROWING fetch of an ACP v2 agent's advertised Resource URLs
@@ -9,17 +11,20 @@ namespace SecurityBot.Api.Resolution;
 // resolves to an EMPTY list so the resolver yields NOT_AUDITABLE rather than
 // throwing a 500 out of the paid scan endpoint.
 //
-// TODO: confirm V2 marketplace resources[].url shape. The marketplace agent
-// record shape is not pinned in this codebase yet; this reader walks several
-// plausible locations (top-level resources[], data.resources[], agent.resources[])
-// and pulls a "url" string off each entry. Tighten once the live shape is
-// confirmed against api.acp.virtuals.io.
+// V2 marketplace shape CONFIRMED 2026-05-30 against api.acp.virtuals.io: the agent
+// record is { data: { ..., resources: [ { id, name, url, ... }, ... ] } } where each
+// `url` is a full ABSOLUTE URL (e.g. https://api.acp-metabot.dev/<slug>/v1/resources/<name>
+// for a path-prefixed bot, or https://api.acp-metabot.dev/v1/resources/<name> for the apex).
+// ExtractResourceUrls still walks data.resources[] / top-level / agent.resources[]
+// defensively, but data.resources[] is the live shape; the resolver derives the bot's
+// probeable base from these URLs (see MarketplaceTargetResolver).
 public static class MarketplaceResourceFetcher
 {
-    // V2 marketplace agent endpoint. Address is appended as the path segment.
-    // Kept here (not in config) deliberately for v1; promote to options if the
-    // host changes per-environment.
-    private const string AgentEndpointBase = "https://api.acp.virtuals.io/api/agents/";
+    // V2 BY-WALLET agent endpoint. CONFIRMED: GET /agents/wallet/<addr> returns 200 with
+    // the agent record; the earlier /api/agents/<addr> path 404s (which silently made every
+    // agentAddress scan resolve to NOT_AUDITABLE). Address appended as the path segment.
+    // Kept here (not in config) deliberately for v1; promote to options if the host changes.
+    private const string AgentEndpointBase = "https://api.acp.virtuals.io/agents/wallet/";
 
     public static async Task<IReadOnlyList<string>> FetchAsync(
         IHttpClientFactory factory,
@@ -52,7 +57,7 @@ public static class MarketplaceResourceFetcher
         }
     }
 
-    private static IReadOnlyList<string> ExtractResourceUrls(JsonElement root)
+    internal static IReadOnlyList<string> ExtractResourceUrls(JsonElement root)
     {
         // Try the resources array at a few plausible locations.
         if (TryGetResourcesArray(root, out var resources))

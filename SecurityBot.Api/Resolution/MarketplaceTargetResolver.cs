@@ -87,8 +87,18 @@ public sealed class MarketplaceTargetResolver : ITargetResolver
             Reason: "agentAddress or baseUrl is required");
     }
 
-    // Parses an absolute http(s) URL and reduces it to scheme://authority
-    // (host + port, no path/query/fragment) so the base is clean to probe against.
+    // Parse an absolute http(s) URL and derive the bot's probeable BASE.
+    //
+    // A registered Resource URL looks like https://host/<prefix>/v1/resources/<name>, so we
+    // strip the path at the first "/v1/" segment and keep everything before it:
+    //   https://api.acp-metabot.dev/securitybot/v1/resources/auditByAgent
+    //     -> https://api.acp-metabot.dev/securitybot   (path-prefixed bot: KEEP the prefix)
+    //   https://api.acp-metabot.dev/v1/resources/sellerDiagnose
+    //     -> https://api.acp-metabot.dev               (apex bot: no prefix)
+    // Reducing to scheme://authority instead would drop the /<prefix> and probe the apex
+    // gateway (TheMetaBot) instead of the target bot. A bare host or a non-/v1 URL keeps its
+    // path as-is. Query/fragment are always dropped. The result is SSRF-safe to hand to the
+    // engine: ProbeClient re-classifies every resolved IP at connect time (inverse pin).
     private static bool TryNormalizeBase(string? value, out string normalized)
     {
         normalized = string.Empty;
@@ -97,7 +107,11 @@ public sealed class MarketplaceTargetResolver : ITargetResolver
         if (!Uri.TryCreate(value.Trim(), UriKind.Absolute, out var u)) return false;
         if (u.Scheme != Uri.UriSchemeHttp && u.Scheme != Uri.UriSchemeHttps) return false;
 
-        normalized = $"{u.Scheme}://{u.Authority}";
+        var path = u.AbsolutePath; // excludes query + fragment
+        var v1 = path.IndexOf("/v1/", StringComparison.OrdinalIgnoreCase);
+        var basePath = (v1 >= 0 ? path[..v1] : path).TrimEnd('/');
+
+        normalized = $"{u.Scheme}://{u.Authority}{basePath}";
         return true;
     }
 }

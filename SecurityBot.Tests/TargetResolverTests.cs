@@ -120,4 +120,46 @@ public class TargetResolverTests
         Assert.Equal("https://api.bar.dev", r.BaseUrl);
         Assert.False(called);
     }
+
+    // PATH-PREFIXED bot: the marketplace resource URL carries the bot's /<slug> prefix, and
+    // the derived base MUST keep it — dropping it would scan the apex gateway (TheMetaBot),
+    // not the target. Regression guard for the 2026-05-30 resolver hardening.
+    [Fact]
+    public async Task AgentAddress_prefixed_resource_url_preserves_path_prefix()
+    {
+        var r = await WithMarketplace(new[]
+            {
+                "https://api.acp-metabot.dev/securitybot/v1/resources/auditByAgent",
+                "https://api.acp-metabot.dev/securitybot/v1/resources/patternCatalogue",
+            })
+            .ResolveAsync(agentAddress: "0xabc", baseUrl: null, default);
+        Assert.True(r.Auditable);
+        Assert.Equal("marketplace", r.ResolvedVia);
+        Assert.Equal("https://api.acp-metabot.dev/securitybot", r.BaseUrl);
+        Assert.Equal(2, r.ResourceUrls.Count);
+    }
+
+    // Buyer-supplied baseUrl that already carries a path prefix is preserved (so a buyer can
+    // point the scan at a path-prefixed surface directly instead of the apex).
+    [Fact]
+    public async Task Explicit_baseUrl_with_path_prefix_is_preserved()
+    {
+        var r = await WithMarketplace(Array.Empty<string>())
+            .ResolveAsync(agentAddress: null, baseUrl: "https://api.acp-metabot.dev/securitybot", default);
+        Assert.True(r.Auditable);
+        Assert.Equal("https://api.acp-metabot.dev/securitybot", r.BaseUrl);
+    }
+
+    // Buyer who pastes a full prefixed Resource URL as baseUrl still resolves to the bot base.
+    [Fact]
+    public async Task Explicit_baseUrl_that_is_a_prefixed_resource_url_strips_at_v1()
+    {
+        var r = await WithMarketplace(Array.Empty<string>())
+            .ResolveAsync(
+                agentAddress: null,
+                baseUrl: "https://api.acp-metabot.dev/securitybot/v1/resources/patternCatalogue",
+                default);
+        Assert.True(r.Auditable);
+        Assert.Equal("https://api.acp-metabot.dev/securitybot", r.BaseUrl);
+    }
 }
