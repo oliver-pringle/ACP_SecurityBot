@@ -103,6 +103,10 @@ builder.Services.AddHttpClient<InJobStreamDeliveryService>();
 // Hosted workers
 builder.Services.AddHostedService<WatchWorker>();
 builder.Services.AddHostedService<RetryWorker>();
+// Daily WAL-aware online SQLite snapshot to /data/backups (portfolio
+// convention P6). Lifted from LiquidGuard. Keeps 7 days; configurable via
+// Backup:HourUtc (default 04:00) / Backup:KeepDays / Backup:Directory.
+builder.Services.AddHostedService<BackupWorker>();
 
 builder.Services.AddOpenApi();
 
@@ -148,6 +152,19 @@ var app = builder.Build();
 
 var db = app.Services.GetRequiredService<Db>();
 await db.InitializeSchemaAsync();
+
+// Proactive-outreach kill-switch. SecurityBot has NO outreach worker in v1 -
+// this is the conscious default-OFF posture + a boot log so the stance is
+// visible on every restart. The bot is a PASSIVE auditor: it answers paid
+// hires and re-scans watched targets; it never cold-mails an agent operator
+// unless this flag is explicitly flipped. Any future proactive-outreach
+// worker MUST gate on this flag (default false) before sending anything.
+var outreachEnabled = string.Equals(
+    builder.Configuration["SECURITYBOT_OUTREACH_ENABLED"]
+        ?? Environment.GetEnvironmentVariable("SECURITYBOT_OUTREACH_ENABLED"),
+    "true", StringComparison.OrdinalIgnoreCase);
+app.Logger.LogInformation("Outreach worker: {State} (SECURITYBOT_OUTREACH_ENABLED={Flag})",
+    outreachEnabled ? "ENABLED" : "DISABLED", outreachEnabled);
 
 if (app.Environment.IsDevelopment())
 {

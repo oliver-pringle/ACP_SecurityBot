@@ -17,7 +17,16 @@ public sealed class SecurityHeadersCheck : IProbeCheck
 
     public Task<Finding> RunAsync(ProbeContext ctx, CancellationToken ct)
     {
-        var reached = ctx.All.Where(r => r.Reached).ToList();
+        // Exclude the synthetic 'ratelimit_probe' - it is NOT a real fetched
+        // HTTP response. DynamicAuditEngine.RunRateLimitBurstAsync collapses the
+        // burst into one summary response with EMPTY headers and an empty body,
+        // so including it here would make EVERY scan (even of a perfectly
+        // hardened target, and SecurityBot's own surface) trip a false P31
+        // Present. We only judge headers on genuinely-fetched responses.
+        var reached = ctx.All
+            .Where(r => r.Reached &&
+                        !r.Label.Equals("ratelimit_probe", StringComparison.OrdinalIgnoreCase))
+            .ToList();
         if (reached.Count == 0)
         {
             return Task.FromResult(new Finding(
