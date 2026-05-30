@@ -1,0 +1,16 @@
+# build artifacts
+**/bin/
+**/obj/
+**/node_modules/
+**/dist/
+# data + secrets
+data/
+*.db
+*.db-wal
+*.db-shm
+.env
+**/.env
+acp-v2/.env
+ruvector.db
+# scratch
+_*.txt
