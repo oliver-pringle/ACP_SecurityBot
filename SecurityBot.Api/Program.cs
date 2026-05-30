@@ -1,11 +1,14 @@
 using System.Net.Http;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 using SecurityBot.Api.Data;
+using SecurityBot.Api.Email;
 using SecurityBot.Api.Engine;
 using SecurityBot.Api.Engine.Checks;
 using SecurityBot.Api.Middleware;
 using SecurityBot.Api.Models;
+using SecurityBot.Api.Resolution;
 using SecurityBot.Api.Services;
 using SecurityBot.Api.Workers;
 using Microsoft.AspNetCore.HttpOverrides;
@@ -19,6 +22,18 @@ builder.Services.AddSingleton<WebhookSecretCipher>();   // AES-GCM at rest for w
 builder.Services.AddSingleton<SubscriptionRepository>();
 builder.Services.AddSingleton<SubscriptionRunRepository>();
 builder.Services.AddSingleton<ScanRepository>();
+builder.Services.AddSingleton<EmailLogRepository>();
+
+// Pattern catalogue (49 entries: P1-P39 cross-cutting + P31-TLS + B1-B9). The
+// parameterless ctor loads the copy placed next to the API assembly by the
+// csproj <None Include CopyToOutputDirectory>. Singleton — the file is read
+// once at first resolution and held in memory.
+builder.Services.AddSingleton<PatternCatalogue>();
+
+// Email backend. v1 ships NoopEmailSender ("no_backend") — delivering mail to
+// a Virtuals @agents.world mailbox is a deferred research spike. Swap this one
+// registration when a real backend lands; the scan endpoint is backend-agnostic.
+builder.Services.AddSingleton<IEmailSender, NoopEmailSender>();
 
 // Audit engine — the scan pipeline the WatchWorker re-runs each tick. The
 // outbound probe client is the most-hardened HTTP client in the bot (SSRF
@@ -42,6 +57,28 @@ builder.Services.AddSingleton(sp => new DynamicAuditEngine(
     sp.GetRequiredService<IProbeFetcher>(),
     sp.GetServices<IProbeCheck>(),
     CorpusVersion));
+
+// Marketplace fetch lane for the resolver. A dedicated HttpClient (short
+// timeout, no auto-redirect) is used to GET the V2 marketplace agent record and
+// extract the agent's advertised resources[].url fields. The resolution LOGIC
+// itself is unit-tested in Task 10 with a fake delegate; here we wire a
+// best-effort, NON-THROWING delegate so an unreachable / shape-shifted
+// marketplace yields an empty list (=> NOT_AUDITABLE) instead of a 500.
+builder.Services.AddHttpClient("marketplace", c =>
+{
+    c.Timeout = TimeSpan.FromSeconds(8);
+    c.DefaultRequestHeaders.Add("Accept", "application/json");
+}).ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+{
+    AllowAutoRedirect = false,
+});
+builder.Services.AddSingleton<ITargetResolver>(sp =>
+{
+    var factory = sp.GetRequiredService<IHttpClientFactory>();
+    var logger = sp.GetRequiredService<ILoggerFactory>().CreateLogger("MarketplaceResolver");
+    return new MarketplaceTargetResolver(async (agentAddress, ct) =>
+        await MarketplaceResourceFetcher.FetchAsync(factory, logger, agentAddress, ct));
+});
 
 // Services
 builder.Services.AddSingleton<SubscriptionService>();
@@ -340,4 +377,160 @@ app.MapGet("/subscriptions/{id}", async (string id, HttpContext ctx, Subscriptio
 // the middleware above whitelists /v1/resources/* alongside /health.
 // Resource handlers are added in Task 12 (security_scan domain).
 
+// POST /v1/internal/scan — the paid scan offering's internal endpoint. The
+// sidecar forwards a paid hire here with the internal X-API-Key (gated by the
+// middleware above; not public, not under /v1/resources/). Pipeline:
+//   resolve target -> (auditable?) -> scan -> persist -> optional email
+//   -> assemble the deliverable JSON the sidecar forwards to the buyer as-is.
+//
+// The whole handler is wrapped in try/catch returning a stable INTERNAL_ERROR
+// (P30 — never leak ex.Message). NOT_AUDITABLE is a NORMAL 200 deliverable,
+// not an error.
+app.MapPost("/v1/internal/scan", async (
+    HttpContext ctx,
+    ITargetResolver resolver,
+    DynamicAuditEngine engine,
+    ScanRepository scanRepo,
+    EmailLogRepository emailLog,
+    IEmailSender emailSender,
+    CancellationToken ct) =>
+{
+    try
+    {
+        // Read the body into the typed record. ReadFromJsonAsync binds the
+        // reference-typed string? fields + the bool with a default; this avoids
+        // the nullable-VALUE-type silent-400 boilerplate gotcha (bool is a
+        // value type but it has an explicit default of false here and ASP.NET
+        // tolerates a missing property on a record default). A null / empty /
+        // unparseable body is a stable 400.
+        ScanRequest? req;
+        try
+        {
+            req = await ctx.Request.ReadFromJsonAsync<ScanRequest>(ct);
+        }
+        catch (JsonException)
+        {
+            return Results.Json(new { error = "INVALID_REQUEST" }, statusCode: 400);
+        }
+        if (req is null)
+            return Results.Json(new { error = "INVALID_REQUEST" }, statusCode: 400);
+
+        var resolved = await resolver.ResolveAsync(req.AgentAddress, req.BaseUrl, ct);
+
+        // NOT_AUDITABLE is a normal deliverable (200), not an error — the buyer
+        // paid for an honest answer and "this agent has no auditable surface" is
+        // one. No scan row is written for a non-auditable target.
+        if (!resolved.Auditable)
+        {
+            return Results.Ok(new
+            {
+                agentAddress = req.AgentAddress,
+                baseUrl = req.BaseUrl,
+                resolvedVia = resolved.ResolvedVia,
+                verdict = "NOT_AUDITABLE",
+                reason = resolved.Reason,
+            });
+        }
+
+        var target = new ScanTarget(
+            req.AgentAddress, resolved.BaseUrl!, resolved.ResolvedVia, resolved.ResourceUrls);
+        var report = await engine.ScanAsync(target, ct);
+
+        // Persist the scan + its findings atomically. FindingCount = report
+        // findings count; corpus version stamped from the engine's constant.
+        var rec = new ScanRecord(
+            AgentAddress: report.AgentAddress,
+            BaseUrl: report.BaseUrl,
+            ResolvedVia: report.ResolvedVia,
+            Score: report.Score,
+            Grade: report.Grade,
+            ObservableCount: report.ObservableCount,
+            FindingCount: report.Findings.Count,
+            Verdict: report.Verdict,
+            CorpusVersion: CorpusVersion,
+            ScannedAtUtc: report.ScannedAtUtc);
+        var scanId = await scanRepo.InsertAsync(rec, report.Findings);
+
+        // Optional email tier. v1 has no real source of an agent's @agents.world
+        // mailbox, so we can only attempt delivery when we have SOMETHING to send
+        // to. With no address source yet, email is "skipped". When a real backend
+        // + address source lands, derive the recipient here and call the sender.
+        string? emailDelivery = null;
+        if (req.EmailReport)
+        {
+            // No address resolution exists yet (research-spike deferral). With no
+            // recipient we don't call the (noop) sender — the honest status is
+            // "skipped". The email_log row records the attempt either way.
+            emailDelivery = "skipped";
+            await emailLog.InsertAsync(
+                toAddress: req.AgentAddress ?? "(unknown)",
+                agentAddress: req.AgentAddress,
+                scanId: scanId,
+                status: emailDelivery,
+                sentAt: DateTime.UtcNow);
+        }
+
+        // Assemble the deliverable. Enum-typed Severity/Verdict are emitted as
+        // their NAMES (ASP.NET serialises enums as ints by default — call
+        // .ToString()). _emailDelivery is present ONLY when emailReport was true.
+        var findings = report.Findings.Select(f => new
+        {
+            patternId = f.PatternId,
+            title = f.Title,
+            severity = f.Severity.ToString(),
+            verdict = f.Verdict.ToString(),
+            evidence = f.Evidence,
+            fixRef = f.FixRef,
+        }).ToList();
+
+        if (req.EmailReport)
+        {
+            return Results.Ok(new
+            {
+                agentAddress = report.AgentAddress,
+                baseUrl = report.BaseUrl,
+                resolvedVia = report.ResolvedVia,
+                scannedAt = report.ScannedAtUtc.ToString("O"),
+                score = report.Score,
+                grade = report.Grade,
+                observableCount = report.ObservableCount,
+                totalPatterns = report.TotalPatterns,
+                findings,
+                summary = report.Summary,
+                verdict = report.Verdict,
+                _emailDelivery = emailDelivery,
+            });
+        }
+
+        return Results.Ok(new
+        {
+            agentAddress = report.AgentAddress,
+            baseUrl = report.BaseUrl,
+            resolvedVia = report.ResolvedVia,
+            scannedAt = report.ScannedAtUtc.ToString("O"),
+            score = report.Score,
+            grade = report.Grade,
+            observableCount = report.ObservableCount,
+            totalPatterns = report.TotalPatterns,
+            findings,
+            summary = report.Summary,
+            verdict = report.Verdict,
+        });
+    }
+    catch (Exception)
+    {
+        // P30: never leak ex.Message / stack to the buyer.
+        return Results.Json(new { error = "INTERNAL_ERROR" }, statusCode: 500);
+    }
+});
+
 app.Run();
+
+// The paid scan request body. AgentAddress / BaseUrl are reference-typed (no
+// silent-400 nullable-value gotcha); EmailReport is a bool defaulting false so a
+// body that omits it binds cleanly.
+public sealed record ScanRequest(string? AgentAddress, string? BaseUrl, bool EmailReport = false);
+
+// Expose the implicit Program class so WebApplicationFactory<Program> can host
+// it in the endpoint tests.
+public partial class Program { }
