@@ -1,11 +1,9 @@
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
-
-COPY SecurityBot.Api/SecurityBot.Api.csproj SecurityBot.Api/
-RUN dotnet restore SecurityBot.Api/SecurityBot.Api.csproj
-
-COPY SecurityBot.Api/ SecurityBot.Api/
-RUN dotnet publish SecurityBot.Api/SecurityBot.Api.csproj -c Release -o /app /p:UseAppHost=false
+COPY SecurityBot.Api.csproj ./
+RUN dotnet restore
+COPY . ./
+RUN dotnet publish -c Release -o /app /p:UseAppHost=false
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
 WORKDIR /app
@@ -17,7 +15,7 @@ ENV ConnectionStrings__Sqlite="Data Source=/data/securitybot.db;Cache=Shared"
 # The aspnet base image ships with a non-root `app` user (UID is exposed via
 # $APP_UID, currently 1654 in .NET 10). Drop privileges before running.
 # NOTE: the SQLite bind-mount target /data must be writable by this UID on the
-# host — see the README for the one-time `chown 1654:1654 ./data` step.
+# host - see the README for the one-time `chown 1654:1654 ./data` step.
 USER $APP_UID
 
 EXPOSE 5000

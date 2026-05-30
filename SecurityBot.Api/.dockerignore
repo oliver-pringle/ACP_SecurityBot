@@ -1,0 +1,9 @@
+bin/
+obj/
+_smoke.db
+_smoke.db-wal
+_smoke.db-shm
+*.db
+*.db-wal
+*.db-shm
+Properties/launchSettings.json
