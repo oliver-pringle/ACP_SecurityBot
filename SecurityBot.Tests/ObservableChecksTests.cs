@@ -115,17 +115,27 @@ public class ObservableChecksTests
     }
 
     [Fact]
-    public async Task Stub_zero_address_is_Present()
+    public async Task Stub_literal_0xstub_is_Present()
     {
-        var f = await new StubDataCheck().RunAsync(Ctx(Resp("resource_0", "{\"operator\":\"0x0000000000000000000000000000000000000000\"}")), default);
+        var f = await new StubDataCheck().RunAsync(Ctx(Resp("resource_0", "{\"attestationUid\":\"0xSTUB\"}")), default);
         Assert.Equal(Verdict.Present, f.Verdict);
     }
 
     [Fact]
-    public async Task Stub_synthetic_literal_is_Present()
+    public async Task Stub_lorem_ipsum_is_Present()
     {
-        var f = await new StubDataCheck().RunAsync(Ctx(Resp("root", "{\"source\":\"SYNTHETIC\"}")), default);
+        var f = await new StubDataCheck().RunAsync(Ctx(Resp("root", "{\"description\":\"lorem ipsum dolor sit amet\"}")), default);
         Assert.Equal(Verdict.Present, f.Verdict);
+    }
+
+    [Fact]
+    public async Task Stub_word_synthetic_in_prose_is_NOT_flagged()
+    {
+        // Regression guard for the SecurityBot self-FP: a body that merely DESCRIBES
+        // synthetic/placeholder patterns (like the patternCatalogue Resource) must Pass.
+        var f = await new StubDataCheck().RunAsync(Ctx(Resp("resource_0",
+            "{\"title\":\"Silent synthetic / stub fallback not labelled\",\"operator\":\"0x0000000000000000000000000000000000000000\"}")), default);
+        Assert.Equal(Verdict.Pass, f.Verdict);
     }
 
     [Fact]

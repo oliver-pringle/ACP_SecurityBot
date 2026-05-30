@@ -3,20 +3,21 @@ using System.Text.RegularExpressions;
 namespace SecurityBot.Api.Engine.Checks;
 
 // P38 (observable variant): a passive scan cannot know when data SHOULD be synthetic,
-// but it CAN catch the unmistakable tells of an incomplete / stub deployment leaking
-// into a served response: an unfilled `REPLACE_WITH_...` config placeholder, the
-// zero address used as a stand-in value, obvious stub calldata, or literal
-// STUB/SYNTHETIC/PLACEHOLDER/TODO/lorem-ipsum markers. These are high-confidence (the
-// tokens are distinctive, not ordinary English) so the false-positive rate stays low.
-// Inspects reached resource / root / paid-unauth bodies. Reads only existing probes.
+// but it CAN catch the HIGH-PRECISION tells of an incomplete / stub deployment leaking
+// into a served response: an unfilled `REPLACE_WITH_...` config placeholder, a literal
+// `0xSTUB` stand-in, a `TODO_...` token, or lorem-ipsum filler. Deliberately NARROW -
+// descriptive words like "synthetic"/"placeholder" and a bare zero-address are EXCLUDED
+// because they occur in legitimate content (a security catalogue describes "synthetic"
+// patterns; a zero-address is a valid burn/unset value), which would false-positive on
+// SecurityBot's own patternCatalogue Resource. Reads only existing probes.
 public sealed partial class StubDataCheck : IProbeCheck
 {
     public string PatternId => "P38";
     public string Title => "Stub / placeholder data leaked into a served response";
 
-    // Distinctive, low-false-positive stub markers.
+    // Distinctive, low-false-positive stub markers (structural, not ordinary prose).
     [GeneratedRegex(
-        @"(REPLACE_WITH_[A-Z0-9_]+|0x0{40}\b|0xab(cd)+\b|\bSYNTHETIC\b|\bPLACEHOLDER\b|\b0xSTUB\b|\bTODO_[A-Z0-9_]+|lorem ipsum)",
+        @"(REPLACE_WITH_[A-Z0-9_]+|\b0xSTUB\b|\bTODO_[A-Z0-9_]+|lorem ipsum)",
         RegexOptions.IgnoreCase)]
     private static partial Regex StubMarkerRegex();
 
