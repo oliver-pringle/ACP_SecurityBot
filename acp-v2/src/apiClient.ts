@@ -25,6 +25,11 @@ export interface CreateSubscriptionResponse {
 
 export interface ApiClient {
   createSubscription(input: CreateSubscriptionInput): Promise<CreateSubscriptionResponse>;
+  // One-shot scan path. Forwards to the X-API-Key-gated C# endpoint
+  // POST /v1/internal/scan. The C# tier resolves agentAddress -> public
+  // surface (or uses the explicit baseUrl), runs the passive audit, and
+  // returns the scan deliverable (or a NOT_AUDITABLE envelope).
+  runScan(input: { agentAddress?: string; baseUrl?: string; emailReport?: boolean }): Promise<unknown>;
 }
 
 export function createApiClient(baseUrl: string, opts: { apiKey?: string } = {}): ApiClient {
@@ -38,6 +43,7 @@ export function createApiClient(baseUrl: string, opts: { apiKey?: string } = {})
   }
 
   return {
-    createSubscription(input) { return post("/subscriptions", input); }
+    createSubscription(input) { return post("/subscriptions", input); },
+    runScan(input) { return post("/v1/internal/scan", input); }
   };
 }

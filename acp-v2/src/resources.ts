@@ -27,8 +27,32 @@ export interface Resource {
 }
 
 export const RESOURCES: Record<string, Resource> = {
-  // populated in Task 13 with the security-scan domain Resources (handlers
-  // wired in the C# tier in Task 12). Echo demo's echoStatus removed here.
+  patternCatalogue: {
+    name: "patternCatalogue",
+    url: "/v1/resources/patternCatalogue",
+    params: { type: "object", properties: {} },
+    description:
+      "FREE. Returns the full 49-pattern security catalogue (P1-P39 + B-series) with " +
+      "severity, detection rule, and canonical fix for each. Lets buyer/orchestrator " +
+      "agents see exactly what security_scan checks before paying.",
+  },
+  auditByAgent: {
+    name: "auditByAgent",
+    url: "/v1/resources/auditByAgent",
+    params: {
+      type: "object",
+      properties: {
+        agentAddress: {
+          type: "string",
+          description: "The agent's 0x wallet address to look up.",
+        },
+      },
+    },
+    description:
+      "FREE. Returns the most-recent scan SUMMARY for an agent (score, grade, per-severity " +
+      "finding counts) - never raw evidence or URLs. found:false if the agent has not been " +
+      "scanned.",
+  },
 };
 
 export function listResources(): string[] {
