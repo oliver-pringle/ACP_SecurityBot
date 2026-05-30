@@ -16,6 +16,13 @@ using Microsoft.AspNetCore.Server.Kestrel.Core;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// SecurityBot suppresses its OWN Kestrel "Server: Kestrel" banner. It would be absurd to
+// flag other agents for P43 (verbose server/framework banner) while leaking the framework
+// in its own responses. AddServerHeader=false strips it at the source so a live self-scan
+// stays clean - and any new portfolio bot should lift this line (the Kestrel banner is a
+// portfolio-wide P43 finding).
+builder.WebHost.ConfigureKestrel(o => o.AddServerHeader = false);
+
 // Data
 builder.Services.AddSingleton<Db>();
 builder.Services.AddSingleton<WebhookSecretCipher>();   // AES-GCM at rest for webhook_secret (audit F3)
@@ -74,6 +81,9 @@ builder.Services.AddSingleton<IProbeCheck, ResourceDisclosureCheck>();
 builder.Services.AddSingleton<IProbeCheck, SchemaDescriptionCheck>();
 builder.Services.AddSingleton<IProbeCheck, SecurityHeadersCheck>();
 builder.Services.AddSingleton<IProbeCheck, TlsTransportCheck>();
+builder.Services.AddSingleton<IProbeCheck, CorsCheck>();          // P42 wildcard CORS
+builder.Services.AddSingleton<IProbeCheck, ServerBannerCheck>();  // P43 verbose server/framework banner
+builder.Services.AddSingleton<IProbeCheck, StubDataCheck>();      // P38 stub/placeholder markers in served bodies
 const string CorpusVersion = "2026-05-30";
 builder.Services.AddSingleton(sp => new DynamicAuditEngine(
     sp.GetRequiredService<IProbeFetcher>(),

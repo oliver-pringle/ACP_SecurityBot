@@ -55,6 +55,9 @@ public class DogfoodSelfScanTests
         new SchemaDescriptionCheck(),
         new SecurityHeadersCheck(),
         new TlsTransportCheck(),
+        new CorsCheck(),
+        new ServerBannerCheck(),
+        new StubDataCheck(),
     };
 
     // Build the context that mirrors SecurityBot's OWN good production shape.
@@ -138,14 +141,14 @@ public class DogfoodSelfScanTests
     }
 
     [Fact]
-    public async Task SecurityBot_self_scan_runs_all_eight_checks()
+    public async Task SecurityBot_self_scan_runs_all_eleven_checks()
     {
         var ctx = SelfShapeContext();
         var findings = new List<Finding>();
         foreach (var check in AllChecks())
             findings.Add(await check.RunAsync(ctx, default));
 
-        Assert.Equal(8, findings.Count);
+        Assert.Equal(11, findings.Count);
         // Each of the six observable checks lands a Pass on our clean surface;
         // P9/P10/P32 and the headers/auth/error/ratelimit checks must all be
         // Pass or NotObservable (never Present, never Partial that drags score).

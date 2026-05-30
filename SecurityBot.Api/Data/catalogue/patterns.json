@@ -390,5 +390,37 @@
     "detection": "See KnownBugs.md B9 detection rule.",
     "canonicalFix": "See KnownBugs.md B9 canonical fix.",
     "referenceBot": "ACP_EASISSUER (Program.cs /v1/attest/review"
+  },
+  {
+    "id": "P40",
+    "title": "Privacy-selling forwarder silently fails open to a public / less-private route",
+    "severity": "High",
+    "detection": "See KnownBugs.md P40 detection rule.",
+    "canonicalFix": "See KnownBugs.md P40 canonical fix.",
+    "referenceBot": "ACP_MEVProtect (Services/Router.cs fallback sequence / Forwarder.cs Downgraded)"
+  },
+  {
+    "id": "P41",
+    "title": "Synthetic / error-coded readings mixed into paid trust verdicts and attestations",
+    "severity": "High",
+    "detection": "See KnownBugs.md P41 detection rule.",
+    "canonicalFix": "See KnownBugs.md P41 canonical fix.",
+    "referenceBot": "ACP_OracleBot (Services/OracleSentinelService.cs ComputeVerdict / AttestAsync)"
+  },
+  {
+    "id": "P42",
+    "title": "Permissive CORS policy (wildcard Access-Control-Allow-Origin)",
+    "severity": "Medium",
+    "detection": "Access-Control-Allow-Origin: * on a reached response (High when Access-Control-Allow-Credentials: true). Checked observably by CorsCheck.",
+    "canonicalFix": "See KnownBugs.md P42 canonical fix.",
+    "referenceBot": "checked observably by SecurityBot CorsCheck"
+  },
+  {
+    "id": "P43",
+    "title": "Verbose server / framework banner headers",
+    "severity": "Low",
+    "detection": "Server (Kestrel/IIS/versioned) or X-Powered-By / X-AspNet(Mvc)-Version on a reached response. Checked observably by ServerBannerCheck.",
+    "canonicalFix": "See KnownBugs.md P43 canonical fix.",
+    "referenceBot": "ACP_SecurityBot (Program.cs AddServerHeader=false)"
   }
 ]
