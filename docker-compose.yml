@@ -1,0 +1,63 @@
+services:
+  securitybot-api:
+    build:
+      context: ./SecurityBot.Api
+    container_name: securitybot-api
+    restart: unless-stopped
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:5000
+      - ConnectionStrings__Sqlite=Data Source=/data/securitybot.db;Cache=Shared
+      # Restrict the Host header allowlist to the docker-compose service name +
+      # localhost. If you publish ports or rename the service, update this list
+      # (or set AllowedHosts in your shell env before `docker compose up`).
+      - AllowedHosts=securitybot-api;localhost
+      # REQUIRED in any non-Development environment — Program.cs fails fast at
+      # boot if ASPNETCORE_ENVIRONMENT != "Development" and this env var is
+      # empty. Set SECURITYBOT_API_KEY in your host shell (or in
+      # ./acp-v2/.env, which docker compose auto-loads at the project root via
+      # `--env-file`) to a high-entropy random string. Use `:?…` expansion to
+      # fail compose-up early with a clear message instead of failing inside
+      # the container at boot.
+      - SECURITYBOT_API_KEY=${SECURITYBOT_API_KEY:?SECURITYBOT_API_KEY is required (high-entropy random string, e.g. `openssl rand -hex 32`)}
+      # REQUIRED in non-Development (audit F3, 2026-05-25). 32 bytes of random
+      # base64. Generate with `openssl rand -base64 32`. Set on the host shell
+      # before `docker compose up` — the `:?…` expansion below fails compose-
+      # up early with a clear message if it's missing. For transitional
+      # plaintext deploys, set SECURITYBOT_ALLOW_PLAINTEXT_WEBHOOK_SECRETS=true
+      # in the host shell INSTEAD of providing the key — this comments the
+      # key var out by giving it an empty default, and the boot warns loudly.
+      - WEBHOOK_SECRET_ENCRYPTION_KEY=${WEBHOOK_SECRET_ENCRYPTION_KEY:-}
+      - SECURITYBOT_ALLOW_PLAINTEXT_WEBHOOK_SECRETS=${SECURITYBOT_ALLOW_PLAINTEXT_WEBHOOK_SECRETS:-}
+      # OPTIONAL (audit F5, 2026-05-25). When the bot sits behind Caddy on the
+      # droplet, tighten to the exact Caddy bridge subnet (e.g. 172.23.0.0/24).
+      # Defaults to 172.16.0.0/12 + loopback v4/v6 — fine for local Docker.
+      - TRUSTED_PROXY_NETWORKS=${TRUSTED_PROXY_NETWORKS:-172.16.0.0/12,127.0.0.0/8,::1/128}
+    volumes:
+      # Bind-mount must be writable by UID 1654 (the .NET 10 `app` user). One-time
+      # setup on a fresh host: `mkdir -p data && sudo chown 1654:1654 data`.
+      - ./data:/data
+    networks: [securitybot]
+    # No ports published — only the sidecar talks to it.
+
+  securitybot-acp:
+    build:
+      context: ./acp-v2
+    container_name: securitybot-acp
+    restart: unless-stopped
+    depends_on: [securitybot-api]
+    env_file: ./acp-v2/.env
+    environment:
+      - SECURITYBOT_API_URL=http://securitybot-api:5000
+      # streamPush binds 127.0.0.1 by default (safe). Multi-container Docker
+      # needs 0.0.0.0 so the API container can reach it across the docker
+      # bridge — the bridge itself is the trust boundary, NOT this port.
+      # CRITICAL: do NOT publish this port to the host via `ports:` — it
+      # carries inJobStream tick deliveries and is X-API-Key-gated, but
+      # treating the docker bridge as the perimeter is the design intent.
+      - SECURITYBOT_STREAM_PUSH_BIND_HOST=0.0.0.0
+    networks: [securitybot]
+
+networks:
+  securitybot:
+    driver: bridge
