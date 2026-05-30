@@ -1,0 +1,394 @@
+[
+  {
+    "id": "P1",
+    "title": "Dev-mode auth bypass without explicit opt-in flag",
+    "severity": "High",
+    "detection": "See KnownBugs.md P1 detection rule.",
+    "canonicalFix": "See KnownBugs.md P1 canonical fix.",
+    "referenceBot": "ACP_SolanaBot (Program.cs:172-203), ACP_OracleBot (Program.cs:189-216)"
+  },
+  {
+    "id": "P2",
+    "title": "Outbound URL parser permits HTTP (no HTTPS-only enforcement)",
+    "severity": "High",
+    "detection": "See KnownBugs.md P2 detection rule.",
+    "canonicalFix": "See KnownBugs.md P2 canonical fix.",
+    "referenceBot": "ACP_OracleBot (Services/InternalUrlValidator.cs:96-104"
+  },
+  {
+    "id": "P3",
+    "title": "Trusted proxy networks default trusts the entire Docker bridge",
+    "severity": "Medium",
+    "detection": "See KnownBugs.md P3 detection rule.",
+    "canonicalFix": "See KnownBugs.md P3 canonical fix.",
+    "referenceBot": "ACP_SolanaBot (Program.cs:80-97), ACP_OracleBot (Program.cs:78-95)"
+  },
+  {
+    "id": "P4",
+    "title": "Webhook delivery missing HttpCompletionOption.ResponseHeadersRead",
+    "severity": "High",
+    "detection": "See KnownBugs.md P4 detection rule.",
+    "canonicalFix": "See KnownBugs.md P4 canonical fix.",
+    "referenceBot": "ACP_SolanaBot (JitoHttpClient.cs:54, JupiterHttpClient.cs:50"
+  },
+  {
+    "id": "P5",
+    "title": "Webhook secrets stored plaintext at rest (no AES-GCM cipher / cipher opt-in)",
+    "severity": "High",
+    "detection": "See KnownBugs.md P5 detection rule.",
+    "canonicalFix": "See KnownBugs.md P5 canonical fix.",
+    "referenceBot": "ACP_SolanaBot (Services/WebhookSecretCipher.cs"
+  },
+  {
+    "id": "P6",
+    "title": "Backups unencrypted / BackupWorker absent",
+    "severity": "Critical",
+    "detection": "See KnownBugs.md P6 detection rule.",
+    "canonicalFix": "See KnownBugs.md P6 canonical fix.",
+    "referenceBot": "ACP_LiquidGuard (Services/BackupWorker.cs), lifted to"
+  },
+  {
+    "id": "P7",
+    "title": "Subscription watchList[] items NOT EVM-validated",
+    "severity": "Medium",
+    "detection": "See KnownBugs.md P7 detection rule.",
+    "canonicalFix": "See KnownBugs.md P7 canonical fix.",
+    "referenceBot": "ACP_MEVProtect (SubscriptionService.cs:49-56)"
+  },
+  {
+    "id": "P8",
+    "title": "Endpoint parameters missing EVM / Solana address validation",
+    "severity": "Medium",
+    "detection": "See KnownBugs.md P8 detection rule.",
+    "canonicalFix": "See KnownBugs.md P8 canonical fix.",
+    "referenceBot": "ACP_WitnessBot (Services/EvmAddressValidator.cs 2026-05-25)"
+  },
+  {
+    "id": "P9",
+    "title": "Public Resources leak operational identifiers",
+    "severity": "High",
+    "detection": "See KnownBugs.md P9 detection rule.",
+    "canonicalFix": "See KnownBugs.md P9 canonical fix.",
+    "referenceBot": "ACP_SolanaBot SolanaHealthService.RedactEndpoint"
+  },
+  {
+    "id": "P10",
+    "title": "Public dump endpoints serve raw stored JSON",
+    "severity": "High",
+    "detection": "See KnownBugs.md P10 detection rule.",
+    "canonicalFix": "See KnownBugs.md P10 canonical fix.",
+    "referenceBot": "Most bots use typed DTOs already; AgentEval needs to migrate"
+  },
+  {
+    "id": "P11",
+    "title": "Raw LLM (Claude / Voyage) output logged on parse failure",
+    "severity": "High",
+    "detection": "See KnownBugs.md P11 detection rule.",
+    "canonicalFix": "See KnownBugs.md P11 canonical fix.",
+    "referenceBot": "to-be-shipped via Metabot v1.10 / NarrativeGenerator hardening"
+  },
+  {
+    "id": "P12",
+    "title": "LLM prompt paths missing UntrustedDataSanitiser.Wrap() envelope",
+    "severity": "Medium",
+    "detection": "See KnownBugs.md P12 detection rule.",
+    "canonicalFix": "See KnownBugs.md P12 canonical fix.",
+    "referenceBot": "ACP_AgentEval StaticAnalyzer.cs:22-30,44-70. Pattern lift"
+  },
+  {
+    "id": "P13",
+    "title": "TypeScript address validation weaker than C# equivalent",
+    "severity": "Medium",
+    "detection": "See KnownBugs.md P13 detection rule.",
+    "canonicalFix": "See KnownBugs.md P13 canonical fix.",
+    "referenceBot": "any sidecar that has tightened the pattern (TBD in sweep)"
+  },
+  {
+    "id": "P14",
+    "title": "SQLite connection string operator-controlled / no path constraint",
+    "severity": "Medium",
+    "detection": "See KnownBugs.md P14 detection rule.",
+    "canonicalFix": "See KnownBugs.md P14 canonical fix.",
+    "referenceBot": "every deployed portfolio bot follows this"
+  },
+  {
+    "id": "P15",
+    "title": "Rate limiter creates per-X-API-Key bucket BEFORE auth validates the key",
+    "severity": "Medium",
+    "detection": "See KnownBugs.md P15 detection rule.",
+    "canonicalFix": "See KnownBugs.md P15 canonical fix.",
+    "referenceBot": "ACP_EASISSUER (Middleware/RateLimitMiddleware.cs 2026-05-25)"
+  },
+  {
+    "id": "P16",
+    "title": "Concurrent paid LLM work duplication (no single-flight)",
+    "severity": "Medium",
+    "detection": "See KnownBugs.md P16 detection rule.",
+    "canonicalFix": "See KnownBugs.md P16 canonical fix.",
+    "referenceBot": "to-ship in AgentEval (TODO)"
+  },
+  {
+    "id": "P17",
+    "title": "Cross-bot HTTP client allows empty API key in non-Dev",
+    "severity": "Medium",
+    "detection": "See KnownBugs.md P17 detection rule.",
+    "canonicalFix": "See KnownBugs.md P17 canonical fix.",
+    "referenceBot": "ACP_OracleBot EasAttestationClient.cs:84 (the _enabled"
+  },
+  {
+    "id": "P18",
+    "title": "Public /v1/* paid offerings without payment proof",
+    "severity": "Medium",
+    "detection": "See KnownBugs.md P18 detection rule.",
+    "canonicalFix": "See KnownBugs.md P18 canonical fix.",
+    "referenceBot": "every deployed bot follows the /v1/internal/ convention"
+  },
+  {
+    "id": "P19",
+    "title": "In-memory rate limiter only (portfolio-wide; defer)",
+    "severity": "High",
+    "detection": "See KnownBugs.md P19 detection rule.",
+    "canonicalFix": "See KnownBugs.md P19 canonical fix.",
+    "referenceBot": "N/A - portfolio is single-replica per bot"
+  },
+  {
+    "id": "P20",
+    "title": "Request metrics persist raw user prompts",
+    "severity": "Medium",
+    "detection": "See KnownBugs.md P20 detection rule.",
+    "canonicalFix": "See KnownBugs.md P20 canonical fix.",
+    "referenceBot": "to-ship in Metabot (TODO)"
+  },
+  {
+    "id": "P21",
+    "title": "HttpClient has no resilience policy (timeout / retry / circuit-breaker)",
+    "severity": "High",
+    "detection": "See KnownBugs.md P21 detection rule.",
+    "canonicalFix": "See KnownBugs.md P21 canonical fix.",
+    "referenceBot": "to-ship in Metabot (TODO)"
+  },
+  {
+    "id": "P22",
+    "title": "Live secrets in workspace .env files",
+    "severity": "Critical",
+    "detection": "See KnownBugs.md P22 detection rule.",
+    "canonicalFix": "See KnownBugs.md P22 canonical fix.",
+    "referenceBot": "every bot uses .gitignore for .env; verify per-bot via"
+  },
+  {
+    "id": "P23",
+    "title": "Probe HTTP server has no request body cap (sidecar-side)",
+    "severity": "High",
+    "detection": "See KnownBugs.md P23 detection rule.",
+    "canonicalFix": "See KnownBugs.md P23 canonical fix.",
+    "referenceBot": "TBD (DeFiEval fix pending)"
+  },
+  {
+    "id": "P24",
+    "title": "Global API key gates everything (no capability split)",
+    "severity": "High",
+    "detection": "See KnownBugs.md P24 detection rule.",
+    "canonicalFix": "See KnownBugs.md P24 canonical fix.",
+    "referenceBot": "ACP_ChainlinkBot already has X-Ops-Key for /v1/internal/wallet-hijack"
+  },
+  {
+    "id": "P25",
+    "title": "x402 verifier doesn't enforce expected amount / network / recipient / expiry",
+    "severity": "High",
+    "detection": "See KnownBugs.md P25 detection rule.",
+    "canonicalFix": "See KnownBugs.md P25 canonical fix.",
+    "referenceBot": "TBD (ButlerBridge cdpFacilitator mode is blocked on 3"
+  },
+  {
+    "id": "P26",
+    "title": "Forward-before-settle: upstream payload served even when settlement fails",
+    "severity": "High",
+    "detection": "See KnownBugs.md P26 detection rule.",
+    "canonicalFix": "See KnownBugs.md P26 canonical fix.",
+    "referenceBot": "TBD (ButlerBridge cdpFacilitator mode pending)"
+  },
+  {
+    "id": "P27",
+    "title": "Subscription bind without payment / wallet ownership proof",
+    "severity": "High",
+    "detection": "See KnownBugs.md P27 detection rule.",
+    "canonicalFix": "See KnownBugs.md P27 canonical fix.",
+    "referenceBot": "TBD"
+  },
+  {
+    "id": "P28",
+    "title": "Pro / subscription key SHA-256 without keyed hash",
+    "severity": "Medium",
+    "detection": "See KnownBugs.md P28 detection rule.",
+    "canonicalFix": "See KnownBugs.md P28 canonical fix.",
+    "referenceBot": "TBD"
+  },
+  {
+    "id": "P29",
+    "title": "Plaintext escape-hatch env var becomes permanent",
+    "severity": "Low",
+    "detection": "See KnownBugs.md P29 detection rule.",
+    "canonicalFix": "See KnownBugs.md P29 canonical fix.",
+    "referenceBot": "OracleBot v0.7 + WitnessBot security pass pattern"
+  },
+  {
+    "id": "P30",
+    "title": "Error messages leak ex.Message / upstream response body",
+    "severity": "Medium",
+    "detection": "See KnownBugs.md P30 detection rule.",
+    "canonicalFix": "See KnownBugs.md P30 canonical fix.",
+    "referenceBot": "ACP_LiquidGuard (every endpoint returns INTERNAL_ERROR)"
+  },
+  {
+    "id": "P31",
+    "title": "Missing HSTS / CSP / X-Frame-Options headers",
+    "severity": "Low",
+    "detection": "See KnownBugs.md P31 detection rule.",
+    "canonicalFix": "See KnownBugs.md P31 canonical fix.",
+    "referenceBot": "every bot post-2026-05-25 sweep follows this exact pattern"
+  },
+  {
+    "id": "P31-TLS",
+    "title": "Plaintext transport / missing HSTS (TLS edge hardening)",
+    "severity": "Medium",
+    "detection": "Base URL served over http, or https without HSTS at the edge.",
+    "canonicalFix": "Terminate TLS at the edge with HSTS; never expose plaintext http for a paid surface. Related to P31.",
+    "referenceBot": "ACP_SecurityBot (TlsTransportCheck)"
+  },
+  {
+    "id": "P32",
+    "title": "Schema property missing description (Pro Mode discoverability)",
+    "severity": "Low",
+    "detection": "See KnownBugs.md P32 detection rule.",
+    "canonicalFix": "See KnownBugs.md P32 canonical fix.",
+    "referenceBot": "any post-2026-05-27 bot (341 descriptions added that sweep)"
+  },
+  {
+    "id": "P33",
+    "title": "Unbounded RPC / upstream fan-out via caller-controlled lookback or pagination",
+    "severity": "High",
+    "detection": "See KnownBugs.md P33 detection rule.",
+    "canonicalFix": "See KnownBugs.md P33 canonical fix.",
+    "referenceBot": "ACP_RevokeBot (Program.cs wallet_scan clamp)"
+  },
+  {
+    "id": "P34",
+    "title": "CancellationToken not propagated into long-running scans",
+    "severity": "High",
+    "detection": "See KnownBugs.md P34 detection rule.",
+    "canonicalFix": "See KnownBugs.md P34 canonical fix.",
+    "referenceBot": "ACP_RevokeBot (Program.cs /wallet_scan +"
+  },
+  {
+    "id": "P35",
+    "title": "Numeric-string parse DoS (no length cap before BigInteger / decimal parse)",
+    "severity": "Medium",
+    "detection": "See KnownBugs.md P35 detection rule.",
+    "canonicalFix": "See KnownBugs.md P35 canonical fix.",
+    "referenceBot": "ACP_LiquidGuard (Program.cs /v1/liq-calldata"
+  },
+  {
+    "id": "P36",
+    "title": "Subscription worker lacks an atomic claim (multi-replica / re-entrant duplicate delivery)",
+    "severity": "High",
+    "detection": "See KnownBugs.md P36 detection rule.",
+    "canonicalFix": "See KnownBugs.md P36 canonical fix.",
+    "referenceBot": "ACP_SolanaBot (SubscriptionRepository.TryClaimDueAsync +"
+  },
+  {
+    "id": "P37",
+    "title": "Internal endpoint bypasses the public endpoint's input validation",
+    "severity": "High",
+    "detection": "See KnownBugs.md P37 detection rule.",
+    "canonicalFix": "See KnownBugs.md P37 canonical fix.",
+    "referenceBot": "ACP_ChainlinkBot (FunctionsEndpoints.ValidateSubmit"
+  },
+  {
+    "id": "P38",
+    "title": "Silent synthetic / stub fallback not labelled or fail-closed in production",
+    "severity": "High",
+    "detection": "See KnownBugs.md P38 detection rule.",
+    "canonicalFix": "See KnownBugs.md P38 canonical fix.",
+    "referenceBot": "ACP_OracleBot (UniV3TwapSource SYNTHETIC tag"
+  },
+  {
+    "id": "P39",
+    "title": "Non-webhook outbound (cross-bot / relay) clients missing AllowAutoRedirect=false + connect-time DNS pin",
+    "severity": "High",
+    "detection": "See KnownBugs.md P39 detection rule.",
+    "canonicalFix": "See KnownBugs.md P39 canonical fix.",
+    "referenceBot": "ACP_OracleBot + ACP_WitnessBot"
+  },
+  {
+    "id": "B1",
+    "title": "VRF prepaid draw burns quota on RPC failure (ChainlinkBot)",
+    "severity": "High",
+    "detection": "See KnownBugs.md B1 detection rule.",
+    "canonicalFix": "See KnownBugs.md B1 canonical fix.",
+    "referenceBot": "TBD (ChainlinkBot v1.4 work)"
+  },
+  {
+    "id": "B2",
+    "title": "Chainlink Automation accepts arbitrary targetContract + callData + fundLink",
+    "severity": "High",
+    "detection": "See KnownBugs.md B2 detection rule.",
+    "canonicalFix": "See KnownBugs.md B2 canonical fix.",
+    "referenceBot": "TBD"
+  },
+  {
+    "id": "B3",
+    "title": "Probe wallet economically drainable via budget.set inflation (DeFiEval)",
+    "severity": "Critical",
+    "detection": "See KnownBugs.md B3 detection rule.",
+    "canonicalFix": "See KnownBugs.md B3 canonical fix.",
+    "referenceBot": "TBD (DeFiEval fix pending)"
+  },
+  {
+    "id": "B4",
+    "title": "attest_revoke allows any X-API-Key holder to revoke any prior attestation (EASIssuer)",
+    "severity": "High",
+    "detection": "See KnownBugs.md B4 detection rule.",
+    "canonicalFix": "See KnownBugs.md B4 canonical fix.",
+    "referenceBot": "lift from ACP_OracleBot/Services/SellerAuthorizationSigner.cs"
+  },
+  {
+    "id": "B5",
+    "title": "Public /functions/status/{requestId} + /vrf/status/{requestId} leak response payloads (ChainlinkBot)",
+    "severity": "Medium",
+    "detection": "See KnownBugs.md B5 detection rule.",
+    "canonicalFix": "See KnownBugs.md B5 canonical fix.",
+    "referenceBot": "TBD"
+  },
+  {
+    "id": "B6",
+    "title": "Probe server /probe reachable from sibling acp-shared containers (DeFiEval)",
+    "severity": "High",
+    "detection": "See KnownBugs.md B6 detection rule.",
+    "canonicalFix": "See KnownBugs.md B6 canonical fix.",
+    "referenceBot": "TBD"
+  },
+  {
+    "id": "B7",
+    "title": "ButlerBridge stub x402 in Production (KNOWN URGENT, blocked on external deps)",
+    "severity": "Critical",
+    "detection": "See KnownBugs.md B7 detection rule.",
+    "canonicalFix": "See KnownBugs.md B7 canonical fix.",
+    "referenceBot": "N/A - pre-implementation"
+  },
+  {
+    "id": "B8",
+    "title": "JSON canonicalization signing DoS + ambiguity (WitnessBot)",
+    "severity": "Medium",
+    "detection": "See KnownBugs.md B8 detection rule.",
+    "canonicalFix": "See KnownBugs.md B8 canonical fix.",
+    "referenceBot": "ACP_WitnessBot (CanonicalJsonService.cs depth +"
+  },
+  {
+    "id": "B9",
+    "title": "Signed-tuple vs returned-field divergence in attestation (EASIssuer)",
+    "severity": "High",
+    "detection": "See KnownBugs.md B9 detection rule.",
+    "canonicalFix": "See KnownBugs.md B9 canonical fix.",
+    "referenceBot": "ACP_EASISSUER (Program.cs /v1/attest/review"
+  }
+]

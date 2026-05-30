@@ -14,4 +14,10 @@
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.1" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Include="Data/catalogue/patterns.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
 </Project>
