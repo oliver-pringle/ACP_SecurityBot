@@ -81,5 +81,3 @@ public record SubscriptionView(
         WebhookUrl:     s.WebhookUrl,
         StreamJobId:    s.StreamJobId);
 }
-
-public record EchoRequest(string Message);

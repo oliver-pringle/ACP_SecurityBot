@@ -36,7 +36,11 @@ public class TickSchedulerWorker : BackgroundService
         await using var scope = _scopes.CreateAsyncScope();
         var subs = scope.ServiceProvider.GetRequiredService<SubscriptionRepository>();
         var runs = scope.ServiceProvider.GetRequiredService<SubscriptionRunRepository>();
-        var executor = scope.ServiceProvider.GetRequiredService<TickExecutorService>();
+        // TODO Task 9: replace TickExecutorService with the security-scan payload
+        // compute (WatchWorker re-scan + diff). TickExecutorService was the echo
+        // demo's per-tick payload producer and was deleted with the demo domain.
+        // This worker is no longer registered in Program.cs (see TODO Task 9
+        // there); the body is kept compiling so Task 9 can repurpose it in place.
         var webhookDeliverer = scope.ServiceProvider.GetRequiredService<WebhookDeliveryService>();
         var streamDeliverer = scope.ServiceProvider.GetRequiredService<InJobStreamDeliveryService>();
 
@@ -48,7 +52,7 @@ public class TickSchedulerWorker : BackgroundService
         var tasks = due.Select(async sub =>
         {
             await sem.WaitAsync(ct);
-            try { await ProcessSubscriptionAsync(sub, runs, subs, executor, webhookDeliverer, streamDeliverer, ct); }
+            try { await ProcessSubscriptionAsync(sub, runs, subs, webhookDeliverer, streamDeliverer, ct); }
             finally { sem.Release(); }
         });
         await Task.WhenAll(tasks);
@@ -58,19 +62,16 @@ public class TickSchedulerWorker : BackgroundService
         Models.Subscription sub,
         SubscriptionRunRepository runs,
         SubscriptionRepository subs,
-        TickExecutorService executor,
         WebhookDeliveryService webhookDeliverer,
         InJobStreamDeliveryService streamDeliverer,
         CancellationToken ct)
     {
         var nextTickNumber = sub.TicksDelivered + 1;
-        string payload;
-        try { payload = await executor.ComputePayloadAsync(sub, nextTickNumber); }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Payload compute failed for sub {Id} tick {N}", sub.Id, nextTickNumber);
-            return;
-        }
+        // TODO Task 9: compute the real per-tick security-scan payload here.
+        // The echo demo's TickExecutorService.ComputePayloadAsync was deleted
+        // with the demo domain; emit an empty JSON object so the kept delivery
+        // plumbing still compiles and round-trips until Task 9 wires the scan.
+        string payload = "{}";
 
         var runId = await runs.InsertPendingAsync(sub.Id, nextTickNumber, DateTime.UtcNow, payload);
 

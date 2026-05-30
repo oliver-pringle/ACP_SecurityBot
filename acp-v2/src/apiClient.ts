@@ -24,7 +24,6 @@ export interface CreateSubscriptionResponse {
 }
 
 export interface ApiClient {
-  echo(input: { message: string }): Promise<unknown>;
   createSubscription(input: CreateSubscriptionInput): Promise<CreateSubscriptionResponse>;
 }
 
@@ -39,7 +38,6 @@ export function createApiClient(baseUrl: string, opts: { apiKey?: string } = {})
   }
 
   return {
-    echo(input)              { return post("/echo", input); },
     createSubscription(input) { return post("/subscriptions", input); }
   };
 }

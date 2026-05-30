@@ -16,7 +16,7 @@ public class SubscriptionServiceTests
             .Build();
 
     private static SubscriptionService NewSvc(TestDb t) =>
-        new(new SubscriptionRepository(t.Db), new TickEchoRepository(t.Db), InsecureConfig());
+        new(new SubscriptionRepository(t.Db), InsecureConfig());
 
     private static CreateSubscriptionRequest TickEchoReq(int ticks, int interval, string webhook = "https://buyer.test/cb")
         => new(
@@ -50,18 +50,22 @@ public class SubscriptionServiceTests
     }
 
     [Fact]
-    public async Task Create_persists_message_to_tick_echo_state()
+    public async Task Create_persists_subscription_row()
     {
+        // The echo demo's per-tick message state (tick_echo_state via
+        // TickEchoRepository) was removed with the demo domain. Task 9/12 add
+        // the real security_watch per-subscription state. This test now asserts
+        // the kept plumbing: the generic subscription row is persisted.
         await using var t = TestDb.New();
         await t.Db.InitializeSchemaAsync();
         var subs = new SubscriptionRepository(t.Db);
-        var te = new TickEchoRepository(t.Db);
-        var svc = new SubscriptionService(subs, te, InsecureConfig());
+        var svc = new SubscriptionService(subs, InsecureConfig());
 
         var resp = await svc.CreateAsync(TickEchoReq(3, 60));
-        var state = await te.GetAsync(resp.SubscriptionId);
-        Assert.NotNull(state);
-        Assert.Equal("ping", state!.Message);
+        var row = await subs.GetByIdAsync(resp.SubscriptionId);
+        Assert.NotNull(row);
+        Assert.Equal("tick_echo", row!.OfferingName);
+        Assert.Equal(3, row.TicksPurchased);
     }
 
     [Fact]
@@ -89,7 +93,7 @@ public class SubscriptionServiceTests
         await using var t = TestDb.New();
         await t.Db.InitializeSchemaAsync();
         var subs = new SubscriptionRepository(t.Db);
-        var svc = new SubscriptionService(subs, new TickEchoRepository(t.Db), InsecureConfig());
+        var svc = new SubscriptionService(subs, InsecureConfig());
 
         var bad = new CreateSubscriptionRequest(
             "j", "0x", "unknown",
@@ -164,8 +168,7 @@ public class SubscriptionServiceTests
         await t.Db.InitializeSchemaAsync();
         // Force SSRF guard ON for this test by NOT passing the insecure config.
         var svc = new SubscriptionService(
-            new SubscriptionRepository(t.Db),
-            new TickEchoRepository(t.Db));
+            new SubscriptionRepository(t.Db));
 
         await Assert.ThrowsAsync<InvalidOperationException>(
             () => svc.CreateAsync(TickEchoReq(ticks: 1, interval: 60, webhook: url)));
@@ -213,7 +216,7 @@ public class SubscriptionServiceTests
         await using var t = TestDb.New();
         await t.Db.InitializeSchemaAsync();
         var subs = new SubscriptionRepository(t.Db);
-        var svc = new SubscriptionService(subs, new TickEchoRepository(t.Db), InsecureConfig());
+        var svc = new SubscriptionService(subs, InsecureConfig());
 
         var resp = await svc.CreateAsync(TickStreamReq(ticks: 3, interval: 60, streamChainId: 8453, streamJobId: "0xabc"));
         var row = await subs.GetByIdAsync(resp.SubscriptionId);

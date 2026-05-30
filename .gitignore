@@ -4,7 +4,11 @@
 **/node_modules/
 **/dist/
 # data + secrets
-data/
+# Anchored to repo root so it ignores the runtime SQLite dir at ./data/ only.
+# A bare `data/` matched the source folder SecurityBot.Api/Data/ case-
+# insensitively on Windows/macOS, silently leaving Db.cs + the repositories
+# untracked. Keep this anchored.
+/data/
 *.db
 *.db-wal
 *.db-shm

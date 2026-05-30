@@ -7,7 +7,7 @@ namespace SecurityBot.Tests;
 public class DbSchemaTests
 {
     [Fact]
-    public async Task InitializeSchema_creates_all_four_tables()
+    public async Task InitializeSchema_creates_subscription_tables()
     {
         await using var t = TestDb.New();
         await t.Db.InitializeSchemaAsync();
@@ -24,8 +24,6 @@ public class DbSchemaTests
 
         Assert.Contains("subscriptions", names);
         Assert.Contains("subscription_runs", names);
-        Assert.Contains("tick_echo_state", names);
-        Assert.Contains("echo_records", names);
     }
 
     [Fact]

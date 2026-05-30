@@ -17,7 +17,8 @@ export function priceFor(offeringName: string, requirement: Record<string, unkno
   }
 
   // One-shot: per-name fixed price table; default if absent.
-  const fixed: Record<string, number> = { echo: 0.1 };
+  // Populated in Task 11 with the security_scan one-shot price(s).
+  const fixed: Record<string, number> = {};
   return { amountUsdc: fixed[offeringName] ?? DEFAULT_PRICE_USDC };
 }
 

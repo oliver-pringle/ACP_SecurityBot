@@ -8,7 +8,6 @@ namespace SecurityBot.Api.Services;
 public class SubscriptionService
 {
     private readonly SubscriptionRepository _subs;
-    private readonly TickEchoRepository _tickEcho;
     private readonly bool _allowHttpWebhooks;
     private readonly bool _disableWebhookDnsValidation;
 
@@ -40,13 +39,16 @@ public class SubscriptionService
     // Offerings this bot exposes through the subscription path. Add new names
     // here as they're registered in acp-v2/src/offerings/registry.ts; the
     // service rejects unknown names rather than silently creating orphan rows.
+    // TODO Task 9/12: replace these echo-demo placeholders with the real
+    // security_watch subscription offering name(s). Kept here so the
+    // create-subscription validation + SSRF + bounds plumbing stays exercised
+    // by SubscriptionServiceTests until the security domain lands.
     private static readonly HashSet<string> KnownSubscriptionOfferings =
         new(StringComparer.OrdinalIgnoreCase) { "tick_echo", "tick_stream_echo" };
 
-    public SubscriptionService(SubscriptionRepository subs, TickEchoRepository tickEcho, IConfiguration? cfg = null)
+    public SubscriptionService(SubscriptionRepository subs, IConfiguration? cfg = null)
     {
         _subs = subs;
-        _tickEcho = tickEcho;
         (_allowHttpWebhooks, _disableWebhookDnsValidation) = WebhookFlagsHelper.Resolve(cfg);
     }
 
@@ -170,15 +172,11 @@ public class SubscriptionService
         );
         await _subs.InsertAsync(sub);
 
-        // tick_echo and tick_stream_echo share per-subscription state: the
-        // message echoed on every tick. Both flow through the same repository
-        // so the executor doesn't care which offering it is — only delivery
-        // mode differs.
-        if (req.OfferingName.Equals("tick_echo", StringComparison.OrdinalIgnoreCase) ||
-            req.OfferingName.Equals("tick_stream_echo", StringComparison.OrdinalIgnoreCase))
-        {
-            await _tickEcho.InsertAsync(id, AsString(req.Requirement, "message"));
-        }
+        // TODO Task 9/12: persist any per-subscription state the security_watch
+        // offering needs here. The echo demo wrote a per-tick message row to
+        // tick_echo_state via TickEchoRepository; both were removed with the
+        // demo domain. The generic subscription row above is all the kept
+        // plumbing requires.
 
         return new CreateSubscriptionResponse(id, webhookSecret, ticks, interval, expiresAt, pushMode);
     }

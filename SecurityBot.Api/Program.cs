@@ -13,16 +13,12 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Data
 builder.Services.AddSingleton<Db>();
-builder.Services.AddSingleton<EchoRepository>();
 builder.Services.AddSingleton<WebhookSecretCipher>();   // AES-GCM at rest for webhook_secret (audit F3)
 builder.Services.AddSingleton<SubscriptionRepository>();
 builder.Services.AddSingleton<SubscriptionRunRepository>();
-builder.Services.AddSingleton<TickEchoRepository>();
 
 // Services
-builder.Services.AddSingleton<EchoService>();
 builder.Services.AddSingleton<SubscriptionService>();
-builder.Services.AddSingleton<TickExecutorService>();
 // WebhookDeliveryService is hardened against DNS-rebind TOCTOU + 3xx
 // redirects (audit F1): the SocketsHttpHandler.ConnectCallback re-validates
 // every resolved IPEndPoint against WebhookUrlValidator.IsConnectBlocked
@@ -42,7 +38,8 @@ builder.Services.AddHttpClient<WebhookDeliveryService>()
 builder.Services.AddHttpClient<InJobStreamDeliveryService>();
 
 // Hosted workers
-builder.Services.AddHostedService<TickSchedulerWorker>();
+// TODO Task 9: replace TickSchedulerWorker with WatchWorker
+// builder.Services.AddHostedService<TickSchedulerWorker>();
 builder.Services.AddHostedService<RetryWorker>();
 
 builder.Services.AddOpenApi();
@@ -252,24 +249,6 @@ app.MapGet("/health", () => Results.Ok(new
     time = DateTime.UtcNow.ToString("O")
 }));
 
-const int MaxMessageLength = 10_000;
-
-app.MapPost("/echo", async (EchoRequest req, EchoService svc) =>
-{
-    if (string.IsNullOrWhiteSpace(req.Message))
-        return Results.BadRequest(new { error = "message is required" });
-    if (req.Message.Length > MaxMessageLength)
-        return Results.BadRequest(new { error = $"message exceeds {MaxMessageLength} character limit" });
-    var record = await svc.RecordAsync(req.Message);
-    return Results.Ok(record);
-});
-
-app.MapGet("/echo/{id:long}", async (long id, EchoService svc) =>
-{
-    var record = await svc.GetAsync(id);
-    return record is null ? Results.NotFound() : Results.Ok(record);
-});
-
 app.MapPost("/subscriptions", async (CreateSubscriptionRequest req, SubscriptionService svc) =>
 {
     if (string.IsNullOrWhiteSpace(req.JobId))
@@ -334,14 +313,6 @@ app.MapGet("/subscriptions/{id}", async (string id, HttpContext ctx, Subscriptio
 //
 // Resources stay reachable even when the X-API-Key middleware is on —
 // the middleware above whitelists /v1/resources/* alongside /health.
-app.MapGet("/v1/resources/echoStatus", async (EchoRepository repo) =>
-{
-    var (count, lastAt) = await repo.GetStatusAsync();
-    return Results.Ok(new
-    {
-        count,
-        lastEchoAt = lastAt?.ToString("O")
-    });
-});
+// Resource handlers are added in Task 12 (security_scan domain).
 
 app.Run();

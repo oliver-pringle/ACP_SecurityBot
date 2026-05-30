@@ -27,30 +27,8 @@ export interface Resource {
 }
 
 export const RESOURCES: Record<string, Resource> = {
-  // Sample resource  -  pre-wired with a matching handler in Program.cs and
-  // a backing GetStatusAsync in EchoRepository. Demonstrates the C#-side
-  // pattern (read SQLite, return JSON). Delete or replace when cloning.
-  //
-  // DEFERRED (KnownBugs P9 — audit Low/Medium F10): echoStatus returns an
-  // exact echo COUNT and lastEchoAt timestamp. Anyone reaching the bot can
-  // observe usage volume + recent activity timing — recon value if you don't
-  // want competitors / attackers tracking when your bot is busy. The
-  // boilerplate keeps this as-is because it's a SAMPLE resource and the
-  // information is intentional for demo orchestrators; downstream clones
-  // exposing similar surfaces should consider:
-  //   - rounding the timestamp to the nearest hour
-  //   - removing the count (boolean liveness only)
-  //   - caching a coarse summary on a 60-second interval
-  // See security-audit/SecurityBot/KnownBugs.md#p9 for the canonical fix.
-  echoStatus: {
-    name: "echoStatus",
-    url: "/v1/resources/echoStatus",
-    params: { type: "object", properties: {} },
-    description:
-      "Returns total echoes recorded and the most recent echo timestamp. " +
-      "Free, public, parameterless. Lets buyer agents introspect liveness " +
-      "and basic state without paying for the /echo offering."
-  }
+  // populated in Task 13 with the security-scan domain Resources (handlers
+  // wired in the C# tier in Task 12). Echo demo's echoStatus removed here.
 };
 
 export function listResources(): string[] {
