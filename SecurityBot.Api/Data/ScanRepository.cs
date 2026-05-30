@@ -171,6 +171,64 @@ public class ScanRepository
         return findings;
     }
 
+    // Per-severity counts of the OPEN findings (verdict Present/Partial only) of
+    // the most-recent scan for a target — by agent_address when one is supplied,
+    // else by base_url. This backs the auditByAgent public Resource: it surfaces
+    // a real-issues summary (how many High/Medium/Low are actually open) WITHOUT
+    // leaking the raw evidence strings or the scanned URL (P9/P10 self-
+    // application). Pass/NotObservable/NotApplicable verdicts are excluded so the
+    // dictionary reflects genuine issues, not check-coverage noise. Returns an
+    // empty dictionary when the target has never been scanned.
+    public async Task<IReadOnlyDictionary<string, int>> GetFindingSeverityCountsAsync(
+        string? agentAddress, string? baseUrl)
+    {
+        await using var conn = _db.OpenConnection();
+
+        long scanId;
+        await using (var findCmd = conn.CreateCommand())
+        {
+            if (!string.IsNullOrEmpty(agentAddress))
+            {
+                findCmd.CommandText = @"
+                    SELECT id FROM scans
+                    WHERE agent_address = $a
+                    ORDER BY scanned_at DESC
+                    LIMIT 1";
+                findCmd.Parameters.AddWithValue("$a", agentAddress);
+            }
+            else
+            {
+                findCmd.CommandText = @"
+                    SELECT id FROM scans
+                    WHERE base_url = $u
+                    ORDER BY scanned_at DESC
+                    LIMIT 1";
+                findCmd.Parameters.AddWithValue("$u", baseUrl ?? string.Empty);
+            }
+            var idObj = await findCmd.ExecuteScalarAsync();
+            if (idObj is null || idObj is DBNull)
+                return new Dictionary<string, int>();
+            scanId = (long)idObj;
+        }
+
+        var counts = new Dictionary<string, int>();
+        await using (var cmd = conn.CreateCommand())
+        {
+            cmd.CommandText = @"
+                SELECT severity, COUNT(*)
+                FROM scan_findings
+                WHERE scan_id = $id AND verdict IN ('Present', 'Partial')
+                GROUP BY severity";
+            cmd.Parameters.AddWithValue("$id", scanId);
+            await using var reader = await cmd.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
+            {
+                counts[reader.GetString(0)] = reader.GetInt32(1);
+            }
+        }
+        return counts;
+    }
+
     // evidence_json is the small JSON wrapper {"text":"..."} written by
     // InsertAsync. Unwrap back to the bare Evidence string; tolerate a legacy /
     // malformed value by returning it verbatim rather than throwing.

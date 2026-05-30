@@ -375,7 +375,47 @@ app.MapGet("/subscriptions/{id}", async (string id, HttpContext ctx, Subscriptio
 //
 // Resources stay reachable even when the X-API-Key middleware is on —
 // the middleware above whitelists /v1/resources/* alongside /health.
-// Resource handlers are added in Task 12 (security_scan domain).
+
+// patternCatalogue — the full P1-P39 + B1-B9 catalogue (49 entries). Free public
+// recon: the differentiator vs generic Solidity auditors. No DB, no secrets.
+app.MapGet("/v1/resources/patternCatalogue", (PatternCatalogue catalogue) =>
+    Results.Ok(new
+    {
+        corpusVersion = catalogue.CorpusVersion,
+        count = catalogue.All().Count,
+        patterns = catalogue.All().Select(p => new
+        {
+            id = p.Id, title = p.Title, severity = p.Severity,
+            detection = p.Detection, canonicalFix = p.CanonicalFix, referenceBot = p.ReferenceBot
+        })
+    }));
+
+// auditByAgent — most-recent scan SUMMARY for an agent. Counts + score only;
+// NEVER raw evidence or URLs (P9/P10 self-application). found:false when absent.
+// agentAddress binds as string? (NOT a nullable value type) to dodge the
+// silent-400 nullable-VALUE-type boilerplate gotcha. The deliberate omission of
+// baseUrl + evidence from the response is the P9/P10 self-application — a public
+// recon surface must not echo what the bot found, only that it found N issues.
+app.MapGet("/v1/resources/auditByAgent", async (string? agentAddress, ScanRepository scans) =>
+{
+    if (string.IsNullOrWhiteSpace(agentAddress))
+        return Results.Ok(new { found = false, reason = "agentAddress query param required" });
+    var rec = await scans.GetMostRecentByAgentAsync(agentAddress);
+    if (rec is null)
+        return Results.Ok(new { found = false });
+    var counts = await scans.GetFindingSeverityCountsAsync(agentAddress, null);
+    return Results.Ok(new
+    {
+        found = true,
+        agentAddress,
+        score = rec.Score,
+        grade = rec.Grade,
+        observableCount = rec.ObservableCount,
+        findingCount = rec.FindingCount,
+        severityCounts = counts,
+        scannedAt = rec.ScannedAtUtc.ToString("O")
+    });
+});
 
 // POST /v1/internal/scan — the paid scan offering's internal endpoint. The
 // sidecar forwards a paid hire here with the internal X-API-Key (gated by the

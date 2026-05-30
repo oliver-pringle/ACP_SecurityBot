@@ -120,4 +120,74 @@ public class ScanRepositoryTests
         var got = await repo.GetMostRecentFindingsAsync("0xnone", "https://never.example");
         Assert.Empty(got);
     }
+
+    [Fact]
+    public async Task GetFindingSeverityCounts_counts_only_open_findings_by_agent()
+    {
+        await using var t = TestDb.New();
+        await t.Db.InitializeSchemaAsync();
+        var repo = new ScanRepository(t.Db);
+
+        // One High Present + one Low Present (both OPEN) + one Medium Pass
+        // (CLOSED). The Pass must be excluded — the summary reflects real issues.
+        var findings = new[]
+        {
+            new Finding("P31", "Missing headers", Severity.High, Verdict.Present, "no CSP", "P31"),
+            new Finding("P9", "Disclosure", Severity.Low, Verdict.Present, "leaks", "P9"),
+            new Finding("P10", "Raw dump", Severity.Medium, Verdict.Pass, "clean", "P10"),
+        };
+        var rec = new ScanRecord(
+            AgentAddress: "0xabc",
+            BaseUrl: "https://x.example",
+            ResolvedVia: "baseUrl",
+            Score: 70, Grade: "C",
+            ObservableCount: 3, FindingCount: 3,
+            Verdict: "AUDITED",
+            CorpusVersion: "2026-05-30",
+            ScannedAtUtc: DateTime.UtcNow);
+        await repo.InsertAsync(rec, findings);
+
+        var counts = await repo.GetFindingSeverityCountsAsync("0xabc", null);
+        Assert.Equal(2, counts.Count);
+        Assert.Equal(1, counts["High"]);
+        Assert.Equal(1, counts["Low"]);
+        Assert.False(counts.ContainsKey("Medium")); // the Pass is excluded
+    }
+
+    [Fact]
+    public async Task GetFindingSeverityCounts_counts_partial_as_open_by_base_url()
+    {
+        await using var t = TestDb.New();
+        await t.Db.InitializeSchemaAsync();
+        var repo = new ScanRepository(t.Db);
+
+        var findings = new[]
+        {
+            new Finding("P10", "Raw dump", Severity.Medium, Verdict.Partial, "leaks", "P10"),
+        };
+        var rec = new ScanRecord(
+            AgentAddress: null,
+            BaseUrl: "https://noagent.example",
+            ResolvedVia: "baseUrl",
+            Score: 80, Grade: "B",
+            ObservableCount: 1, FindingCount: 1,
+            Verdict: "AUDITED",
+            CorpusVersion: "2026-05-30",
+            ScannedAtUtc: DateTime.UtcNow);
+        await repo.InsertAsync(rec, findings);
+
+        var counts = await repo.GetFindingSeverityCountsAsync(null, "https://noagent.example");
+        Assert.Single(counts);
+        Assert.Equal(1, counts["Medium"]); // Partial counts as open
+    }
+
+    [Fact]
+    public async Task GetFindingSeverityCounts_returns_empty_when_no_scan()
+    {
+        await using var t = TestDb.New();
+        await t.Db.InitializeSchemaAsync();
+        var repo = new ScanRepository(t.Db);
+        var counts = await repo.GetFindingSeverityCountsAsync("0xnone", null);
+        Assert.Empty(counts);
+    }
 }
