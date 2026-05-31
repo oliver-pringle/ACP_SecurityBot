@@ -16,13 +16,12 @@ function isAbsoluteHttpUrl(value: string): boolean {
 export const securityScan: Offering = {
   name: "security_scan",
   description:
-    "Dynamic passive security audit of a live ACP agent. Probes the agent's public " +
-    "HTTP surface (security headers, resource over-disclosure, error-leak, auth posture, " +
-    "schema completeness, rate-limit hint) against a 49-pattern catalogue and returns " +
-    "per-finding verdicts with evidence, a 0-100 score, a grade, and canonical-fix " +
-    "references. Read-only and non-intrusive. Supply agentAddress (auto-resolves the " +
-    "public surface) or a baseUrl; optionally email the report to a recipientEmail you " +
-    "supply (e.g. an agent's @agents.world inbox).",
+    "Dynamic passive security audit of a live ACP agent. Probes its public HTTP surface " +
+    "(headers, CORS, server banners, resource over-disclosure, error-leak, auth posture, " +
+    "schema completeness, rate-limit, stub-data leakage) against a 53-pattern catalogue, " +
+    "returning per-finding verdicts with evidence, a 0-100 score, a grade, and canonical " +
+    "fixes. Read-only, non-intrusive. Supply agentAddress (auto-resolves the surface) or a " +
+    "baseUrl; optionally email the report to a recipientEmail you supply.",
   slaMinutes: 5,
 
   requirementSchema: {
