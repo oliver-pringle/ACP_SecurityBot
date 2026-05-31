@@ -468,6 +468,50 @@ app.MapGet("/v1/resources/auditByAgent", async (string? agentAddress, ScanReposi
     });
 });
 
+// GET /v1/resources/offerings — free introspection: the offering catalogue with
+// each offering's requirementSchema + the internal self-test path the website's
+// admin "run console" (BotRunController) calls to exercise an offering without
+// ACP escrow. Whitelisted (under /v1/resources/), no secrets, no DB. Keep this
+// in lockstep with acp-v2/src/offerings/*.ts.
+app.MapGet("/v1/resources/offerings", () => Results.Ok(new
+{
+    supported = true,
+    offerings = new object[]
+    {
+        new
+        {
+            name = "security_scan",
+            description = "Dynamic passive security audit of a live ACP agent against the P1-P43 KnownBugs catalogue.",
+            priceUsdc = 1.00m,
+            priceType = "fixed",
+            internalPath = "/v1/internal/scan",
+            requirementSchema = new
+            {
+                type = "object",
+                properties = new
+                {
+                    agentAddress   = new { type = "string",  description = "The agent's 0x EVM wallet address; resolves the public surface from the marketplace. Provide this OR baseUrl." },
+                    baseUrl        = new { type = "string",  format = "uri",   description = "Explicit public base URL to scan (e.g. https://api.example.com). Provide this OR agentAddress." },
+                    emailReport    = new { type = "boolean", description = "If true, also email the report to recipientEmail. Default false." },
+                    recipientEmail = new { type = "string",  format = "email", description = "Where to email the report when emailReport is true." }
+                },
+                required = Array.Empty<string>()
+            },
+            requirementExample = new { agentAddress = "0xecf9773b50f01f3a97b087a6ecdf12a71afc558c", emailReport = false }
+        },
+        new
+        {
+            name = "security_watch",
+            description = "Recurring passive re-audit with webhook alerts on score regression.",
+            priceUsdc = (decimal?)null,
+            priceType = "subscription",
+            internalPath = (string?)null,   // subscription: no synchronous self-test
+            requirementSchema = (object?)null,
+            requirementExample = (object?)null
+        }
+    }
+}));
+
 // POST /v1/internal/scan — the paid scan offering's internal endpoint. The
 // sidecar forwards a paid hire here with the internal X-API-Key (gated by the
 // middleware above; not public, not under /v1/resources/). Pipeline:
