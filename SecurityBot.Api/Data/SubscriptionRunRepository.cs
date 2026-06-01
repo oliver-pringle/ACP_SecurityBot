@@ -12,11 +12,16 @@ public class SubscriptionRunRepository
     {
         await using var conn = _db.OpenConnection();
         await using var cmd = conn.CreateCommand();
+        // Audit (P59 clone-backport): idempotent on the UNIQUE(subscription_id,
+        // tick_number) constraint. A plain INSERT throws on a re-poll/retry that
+        // re-derives the same (sub,tick), and last_insert_rowid() returns 0/stale
+        // when the insert is ignored — so use INSERT OR IGNORE plus an explicit
+        // SELECT id by (sub,tick) to always return the canonical run id.
         cmd.CommandText = @"
-            INSERT INTO subscription_runs
+            INSERT OR IGNORE INTO subscription_runs
                 (subscription_id, tick_number, scheduled_at, payload_json, delivery_status, attempts)
             VALUES ($s, $t, $sa, $p, 'pending', 0);
-            SELECT last_insert_rowid();";
+            SELECT id FROM subscription_runs WHERE subscription_id = $s AND tick_number = $t;";
         cmd.Parameters.AddWithValue("$s", subscriptionId);
         cmd.Parameters.AddWithValue("$t", tickNumber);
         cmd.Parameters.AddWithValue("$sa", scheduledAt.ToString("O"));

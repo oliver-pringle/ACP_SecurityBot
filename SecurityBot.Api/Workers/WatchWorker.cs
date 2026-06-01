@@ -145,7 +145,20 @@ public class WatchWorker : BackgroundService
             ResolvedVia: string.IsNullOrWhiteSpace(agentAddress) ? "baseUrl" : "agentAddress");
 
         var prevFindings = await scans.GetMostRecentFindingsAsync(target.AgentAddress, target.BaseUrl);
-        var report = await engine.ScanAsync(target, ct);
+        ScanReport report;
+        try
+        {
+            report = await engine.ScanAsync(target, ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Payload compute (scan) failed for sub {Id} tick {N}", sub.Id, nextTickNumber);
+            // Audit (P53 clone-backport): advance next_run_at + record failure rather than letting
+            // the scan exception propagate, else GetDueAsync re-selects the sub every poll forever
+            // and the suspend backstop never engages.
+            await subs.RecordTickResultAsync(sub.Id, false, DateTime.UtcNow, nextRunAt, completed);
+            return;
+        }
         var diff = WatchDiff.Compute(prevFindings, report.Findings);
 
         // Persist the fresh scan so the NEXT tick diffs against it (and so the
