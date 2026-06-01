@@ -5,11 +5,32 @@ using SecurityBot.Api.Models;
 
 namespace SecurityBot.Api.Services;
 
+// P60: thrown when a create-subscription request would push the active-
+// subscription count past the configured global or per-buyer cap. The
+// create-subscription route maps this to HTTP 429 (distinct from the 400 that
+// InvalidOperationException maps to) so buyers can distinguish "your request is
+// malformed" from "the seller is at capacity, retry later".
+public sealed class SubscriptionLimitException : Exception
+{
+    public SubscriptionLimitException(string message) : base(message) { }
+}
+
 public class SubscriptionService
 {
     private readonly SubscriptionRepository _subs;
     private readonly bool _allowHttpWebhooks;
     private readonly bool _disableWebhookDnsValidation;
+
+    // P60 active-subscription quota (global + per-buyer). Enforced BEFORE the
+    // first DB write in CreateAsync so a flood of create-subscription calls
+    // can't unbounded-grow the subscriptions table (and the worker fan-out that
+    // tracks it). 0 = unlimited for that dimension. Defaults are conservative;
+    // operators raise them per-bot via SECURITYBOT_MAX_ACTIVE_GLOBAL /
+    // SECURITYBOT_MAX_ACTIVE_PER_BUYER (or the Subscriptions:MaxActive* cfg keys).
+    private readonly int _maxActiveGlobal;
+    private readonly int _maxActivePerBuyer;
+    public const int DefaultMaxActiveGlobal   = 500;
+    public const int DefaultMaxActivePerBuyer = 10;
 
     // Bounds keep the worker pressure and DB rows sane for any clone. Override
     // per-bot only if a specific offering needs different shape.
@@ -50,6 +71,18 @@ public class SubscriptionService
     {
         _subs = subs;
         (_allowHttpWebhooks, _disableWebhookDnsValidation) = WebhookFlagsHelper.Resolve(cfg);
+        _maxActiveGlobal   = ResolveCap(cfg, "Subscriptions:MaxActiveGlobal",   "SECURITYBOT_MAX_ACTIVE_GLOBAL",   DefaultMaxActiveGlobal);
+        _maxActivePerBuyer = ResolveCap(cfg, "Subscriptions:MaxActivePerBuyer", "SECURITYBOT_MAX_ACTIVE_PER_BUYER", DefaultMaxActivePerBuyer);
+    }
+
+    // Resolve a cap from configuration (Subscriptions:MaxActive*) or the env
+    // var, falling back to the default. A blank or unparseable value uses the
+    // default rather than silently disabling the cap (0 disables intentionally).
+    private static int ResolveCap(IConfiguration? cfg, string cfgKey, string envVar, int dflt)
+    {
+        var raw = cfg?[cfgKey] ?? Environment.GetEnvironmentVariable(envVar);
+        if (string.IsNullOrWhiteSpace(raw)) return dflt;
+        return int.TryParse(raw, out var v) ? v : dflt;
     }
 
     public async Task<CreateSubscriptionResponse> CreateAsync(CreateSubscriptionRequest req)
@@ -81,6 +114,17 @@ public class SubscriptionService
 
         if (!KnownSubscriptionOfferings.Contains(req.OfferingName))
             throw new InvalidOperationException($"unknown offering: {req.OfferingName}");
+
+        // P60: enforce the active-subscription quota BEFORE building/inserting
+        // the row (fail before first write). Global cap first, then per-buyer.
+        // 0 = unlimited for that dimension. SubscriptionLimitException maps to
+        // HTTP 429 in the create-subscription route (distinct from the 400 the
+        // validation InvalidOperationExceptions above map to).
+        if (_maxActiveGlobal > 0 && await _subs.CountActiveAsync() >= _maxActiveGlobal)
+            throw new SubscriptionLimitException("global active-subscription limit reached");
+        if (_maxActivePerBuyer > 0 && !string.IsNullOrEmpty(req.BuyerAgent)
+            && await _subs.CountActiveByBuyerAsync(req.BuyerAgent) >= _maxActivePerBuyer)
+            throw new SubscriptionLimitException("per-buyer active-subscription limit reached");
 
         var pushMode = NormalisePushMode(req.PushMode);
 

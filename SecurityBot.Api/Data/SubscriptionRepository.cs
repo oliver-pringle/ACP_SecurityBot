@@ -73,6 +73,30 @@ public class SubscriptionRepository
         await cmd.ExecuteNonQueryAsync();
     }
 
+    // P60: count of subscriptions still in the 'active' status across all
+    // buyers. Backs the global active-subscription quota enforced in
+    // SubscriptionService.CreateAsync. completed/suspended rows don't count
+    // toward the cap — only live rows the worker still ticks.
+    public async Task<int> CountActiveAsync()
+    {
+        await using var conn = _db.OpenConnection();
+        await using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT COUNT(*) FROM subscriptions WHERE status='active'";
+        return Convert.ToInt32(await cmd.ExecuteScalarAsync());
+    }
+
+    // P60: count of 'active' subscriptions for one buyer. COLLATE NOCASE so an
+    // attacker can't bypass the per-buyer cap by varying the case of an EVM
+    // address (which is case-insensitive). Backs the per-buyer quota.
+    public async Task<int> CountActiveByBuyerAsync(string buyerAgent)
+    {
+        await using var conn = _db.OpenConnection();
+        await using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT COUNT(*) FROM subscriptions WHERE status='active' AND buyer_agent = $b COLLATE NOCASE";
+        cmd.Parameters.AddWithValue("$b", buyerAgent ?? string.Empty);
+        return Convert.ToInt32(await cmd.ExecuteScalarAsync());
+    }
+
     public async Task<Subscription?> GetByIdAsync(string id)
     {
         await using var conn = _db.OpenConnection();

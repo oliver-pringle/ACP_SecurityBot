@@ -373,6 +373,14 @@ app.MapPost("/subscriptions", async (CreateSubscriptionRequest req, Subscription
         var resp = await svc.CreateAsync(req);
         return Results.Ok(resp);
     }
+    catch (SubscriptionLimitException)
+    {
+        // P60: the seller is at its active-subscription quota (global or
+        // per-buyer). 429 (not 400) so buyers retry rather than treat it as a
+        // malformed request. Message is intentionally generic (P30) — the cap
+        // value isn't leaked.
+        return Results.Json(new { error = "SUBSCRIPTION_LIMIT_REACHED" }, statusCode: StatusCodes.Status429TooManyRequests);
+    }
     catch (InvalidOperationException ex)
     {
         return Results.BadRequest(new { error = ex.Message });
