@@ -37,11 +37,13 @@ public sealed class RateLimitMiddleware
 
     // Path prefixes that count as "heavy" — write paths or compute fan-out.
     // /health and /v1/resources/* are excluded by NOT being listed here.
-    // Clones add domain-specific prefixes alongside these.
+    // Every entry MUST be covered by RateLimitCoverageTests; adding a heavy
+    // route to Program.cs without extending this list (or with a kebab-vs-
+    // underscore mismatch) is the P52 drift those tests fail the build on.
     private static readonly string[] HeavyPathPrefixes =
     {
-        "/subscriptions",   // POST creates + writes a row; GET hits SQLite
-        "/echo",            // POST writes a row; GET reads
+        "/subscriptions",    // POST /subscriptions writes a row; GET /subscriptions/{id} hits SQLite
+        "/v1/internal/",     // POST /v1/internal/scan — resolver + probe fan-out + SQLite persist + email
     };
 
     public RateLimitMiddleware(RequestDelegate next, IConfiguration cfg)
@@ -52,16 +54,23 @@ public sealed class RateLimitMiddleware
         _window         = TimeSpan.FromMinutes(1);
     }
 
+    // Public + static so the RateLimitCoverageTests can assert every real
+    // heavy route literal is covered and the free surfaces (/health,
+    // /v1/resources/*) are NOT — a build-breaking guard against P52 drift
+    // (a heavy endpoint added without its prefix => silently unthrottled,
+    // or a kebab/underscore naming mismatch => StartsWith returns false).
+    public static bool IsHeavyPath(string path)
+    {
+        foreach (var prefix in HeavyPathPrefixes)
+            if (path.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)) return true;
+        return false;
+    }
+
     public async Task InvokeAsync(HttpContext ctx)
     {
         var path = ctx.Request.Path.Value ?? "";
 
-        var isHeavy = false;
-        foreach (var prefix in HeavyPathPrefixes)
-        {
-            if (path.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)) { isHeavy = true; break; }
-        }
-        if (!isHeavy)
+        if (!IsHeavyPath(path))
         {
             await _next(ctx);
             return;
