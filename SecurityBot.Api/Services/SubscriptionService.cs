@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Text.Json;
 using SecurityBot.Api.Data;
 using SecurityBot.Api.Models;
+using SecurityBot.Api.Resolution;
 
 namespace SecurityBot.Api.Services;
 
@@ -18,6 +19,7 @@ public sealed class SubscriptionLimitException : Exception
 public class SubscriptionService
 {
     private readonly SubscriptionRepository _subs;
+    private readonly ITargetResolver _resolver;
     private readonly bool _allowHttpWebhooks;
     private readonly bool _disableWebhookDnsValidation;
 
@@ -60,16 +62,13 @@ public class SubscriptionService
     // Offerings this bot exposes through the subscription path. Add new names
     // here as they're registered in acp-v2/src/offerings/registry.ts; the
     // service rejects unknown names rather than silently creating orphan rows.
-    // TODO Task 9/12: replace these echo-demo placeholders with the real
-    // security_watch subscription offering name(s). Kept here so the
-    // create-subscription validation + SSRF + bounds plumbing stays exercised
-    // by SubscriptionServiceTests until the security domain lands.
     private static readonly HashSet<string> KnownSubscriptionOfferings =
-        new(StringComparer.OrdinalIgnoreCase) { "tick_echo", "tick_stream_echo" };
+        new(StringComparer.OrdinalIgnoreCase) { "security_watch" };
 
-    public SubscriptionService(SubscriptionRepository subs, IConfiguration? cfg = null)
+    public SubscriptionService(SubscriptionRepository subs, ITargetResolver resolver, IConfiguration? cfg = null)
     {
         _subs = subs;
+        _resolver = resolver;
         (_allowHttpWebhooks, _disableWebhookDnsValidation) = WebhookFlagsHelper.Resolve(cfg);
         _maxActiveGlobal   = ResolveCap(cfg, "Subscriptions:MaxActiveGlobal",   "SECURITYBOT_MAX_ACTIVE_GLOBAL",   DefaultMaxActiveGlobal);
         _maxActivePerBuyer = ResolveCap(cfg, "Subscriptions:MaxActivePerBuyer", "SECURITYBOT_MAX_ACTIVE_PER_BUYER", DefaultMaxActivePerBuyer);
@@ -85,7 +84,7 @@ public class SubscriptionService
         return int.TryParse(raw, out var v) ? v : dflt;
     }
 
-    public async Task<CreateSubscriptionResponse> CreateAsync(CreateSubscriptionRequest req)
+    public async Task<CreateSubscriptionResponse> CreateAsync(CreateSubscriptionRequest req, CancellationToken ct = default)
     {
         // Audit F9: per-field length caps. The route handler in Program.cs has
         // already null-checked JobId + OfferingName, so we only need to upper-
@@ -149,6 +148,26 @@ public class SubscriptionService
             throw new InvalidOperationException(
                 $"interval × ticks ({windowSeconds}s) exceeds {capLabel}");
         }
+
+        // security_watch carries a scan target (agentAddress and/or baseUrl).
+        // Resolve it to a concrete probeable baseUrl at BIND time and persist the
+        // result into the requirement, so WatchWorker re-scans the right surface
+        // each tick without a per-tick marketplace lookup (and so the buyer's
+        // agentAddress-only request actually scans, instead of dead-ticking on a
+        // missing baseUrl). Fail fast — BEFORE the first DB write — when the
+        // target exposes no externally-auditable surface, rather than accepting a
+        // subscription that would record a failed tick on every poll. The
+        // resolver (MarketplaceResourceFetcher) is best-effort non-throwing, so a
+        // marketplace hiccup degrades to NOT_AUDITABLE here, never a raw network
+        // exception leaked to the buyer (P63).
+        var resolved = await _resolver.ResolveAsync(
+            AsOptionalString(req.Requirement, "agentAddress"),
+            AsOptionalString(req.Requirement, "baseUrl"),
+            ct);
+        if (!resolved.Auditable || string.IsNullOrWhiteSpace(resolved.BaseUrl))
+            throw new InvalidOperationException(
+                resolved.Reason ?? "target exposes no externally-auditable surface");
+        req.Requirement["baseUrl"] = resolved.BaseUrl!;
 
         var requirementJson = JsonSerializer.Serialize(req.Requirement);
         if (System.Text.Encoding.UTF8.GetByteCount(requirementJson) > MaxRequirementJsonBytes)
@@ -256,6 +275,22 @@ public class SubscriptionService
             string s => s,
             JsonElement je when je.ValueKind == JsonValueKind.String => je.GetString()!,
             _ => throw new InvalidOperationException($"field {key} is not a string")
+        };
+    }
+
+    // Optional string getter: returns null when the key is absent or not a
+    // string, rather than throwing. Used for the security_watch scan-target
+    // fields (agentAddress / baseUrl), which are individually optional — the
+    // resolver enforces the "at least one, and it resolves to an auditable
+    // surface" contract.
+    private static string? AsOptionalString(Dictionary<string, object> d, string key)
+    {
+        if (!d.TryGetValue(key, out var v) || v is null) return null;
+        return v switch
+        {
+            string s => s,
+            JsonElement je when je.ValueKind == JsonValueKind.String => je.GetString(),
+            _ => null
         };
     }
 }

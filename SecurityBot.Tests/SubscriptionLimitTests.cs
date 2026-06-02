@@ -29,10 +29,10 @@ public class SubscriptionLimitTests
         => new(
             JobId: jobId,
             BuyerAgent: buyer,
-            OfferingName: "tick_echo",
+            OfferingName: "security_watch",
             Requirement: new Dictionary<string, object>
             {
-                ["message"]         = "ping",
+                ["agentAddress"]    = "0xecf9773b50f01f3a97b087a6ecdf12a71afc558c",
                 ["webhookUrl"]      = "https://buyer.test/cb",
                 ["intervalSeconds"] = 60,
                 ["ticks"]           = 1
@@ -44,7 +44,7 @@ public class SubscriptionLimitTests
         await using var t = TestDb.New();
         await t.Db.InitializeSchemaAsync();
         // global high enough not to interfere; per-buyer cap = 2.
-        var svc = new SubscriptionService(new SubscriptionRepository(t.Db), Cfg(global: 1000, perBuyer: 2));
+        var svc = new SubscriptionService(new SubscriptionRepository(t.Db), FakeTargetResolver.Auditable(), Cfg(global: 1000, perBuyer: 2));
 
         // First two creates succeed (proves the Req is valid).
         await svc.CreateAsync(Req("0xbuyerA", "jobA-1"));
@@ -61,7 +61,7 @@ public class SubscriptionLimitTests
     {
         await using var t = TestDb.New();
         await t.Db.InitializeSchemaAsync();
-        var svc = new SubscriptionService(new SubscriptionRepository(t.Db), Cfg(global: 1000, perBuyer: 2));
+        var svc = new SubscriptionService(new SubscriptionRepository(t.Db), FakeTargetResolver.Auditable(), Cfg(global: 1000, perBuyer: 2));
 
         await svc.CreateAsync(Req("0xbuyerA", "jobA-1"));
         await svc.CreateAsync(Req("0xbuyerA", "jobA-2"));
@@ -77,7 +77,7 @@ public class SubscriptionLimitTests
         // per-buyer cap by varying case. COLLATE NOCASE on CountActiveByBuyer.
         await using var t = TestDb.New();
         await t.Db.InitializeSchemaAsync();
-        var svc = new SubscriptionService(new SubscriptionRepository(t.Db), Cfg(global: 1000, perBuyer: 2));
+        var svc = new SubscriptionService(new SubscriptionRepository(t.Db), FakeTargetResolver.Auditable(), Cfg(global: 1000, perBuyer: 2));
 
         await svc.CreateAsync(Req("0xAbCdEf", "job-1"));
         await svc.CreateAsync(Req("0xabcdef", "job-2"));
@@ -93,7 +93,7 @@ public class SubscriptionLimitTests
         await using var t = TestDb.New();
         await t.Db.InitializeSchemaAsync();
         // global cap = 2; per-buyer high enough not to interfere.
-        var svc = new SubscriptionService(new SubscriptionRepository(t.Db), Cfg(global: 2, perBuyer: 1000));
+        var svc = new SubscriptionService(new SubscriptionRepository(t.Db), FakeTargetResolver.Auditable(), Cfg(global: 2, perBuyer: 1000));
 
         await svc.CreateAsync(Req("0xbuyerA", "job-1"));
         await svc.CreateAsync(Req("0xbuyerB", "job-2"));
@@ -110,7 +110,7 @@ public class SubscriptionLimitTests
         await using var t = TestDb.New();
         await t.Db.InitializeSchemaAsync();
         // 0 = unlimited for both dimensions.
-        var svc = new SubscriptionService(new SubscriptionRepository(t.Db), Cfg(global: 0, perBuyer: 0));
+        var svc = new SubscriptionService(new SubscriptionRepository(t.Db), FakeTargetResolver.Auditable(), Cfg(global: 0, perBuyer: 0));
 
         for (int i = 0; i < 12; i++)
             await svc.CreateAsync(Req("0xbuyerA", $"job-{i}"));

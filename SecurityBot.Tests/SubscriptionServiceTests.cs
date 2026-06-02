@@ -16,16 +16,16 @@ public class SubscriptionServiceTests
             .Build();
 
     private static SubscriptionService NewSvc(TestDb t) =>
-        new(new SubscriptionRepository(t.Db), InsecureConfig());
+        new(new SubscriptionRepository(t.Db), FakeTargetResolver.Auditable(), InsecureConfig());
 
     private static CreateSubscriptionRequest TickEchoReq(int ticks, int interval, string webhook = "https://buyer.test/cb")
         => new(
             JobId: "job-x",
             BuyerAgent: "0xbuyer",
-            OfferingName: "tick_echo",
+            OfferingName: "security_watch",
             Requirement: new Dictionary<string, object>
             {
-                ["message"]         = "ping",
+                ["agentAddress"]    = "0xecf9773b50f01f3a97b087a6ecdf12a71afc558c",
                 ["webhookUrl"]      = webhook,
                 ["intervalSeconds"] = interval,
                 ["ticks"]           = ticks
@@ -59,12 +59,12 @@ public class SubscriptionServiceTests
         await using var t = TestDb.New();
         await t.Db.InitializeSchemaAsync();
         var subs = new SubscriptionRepository(t.Db);
-        var svc = new SubscriptionService(subs, InsecureConfig());
+        var svc = new SubscriptionService(subs, FakeTargetResolver.Auditable(), InsecureConfig());
 
         var resp = await svc.CreateAsync(TickEchoReq(3, 60));
         var row = await subs.GetByIdAsync(resp.SubscriptionId);
         Assert.NotNull(row);
-        Assert.Equal("tick_echo", row!.OfferingName);
+        Assert.Equal("security_watch", row!.OfferingName);
         Assert.Equal(3, row.TicksPurchased);
     }
 
@@ -93,7 +93,7 @@ public class SubscriptionServiceTests
         await using var t = TestDb.New();
         await t.Db.InitializeSchemaAsync();
         var subs = new SubscriptionRepository(t.Db);
-        var svc = new SubscriptionService(subs, InsecureConfig());
+        var svc = new SubscriptionService(subs, FakeTargetResolver.Auditable(), InsecureConfig());
 
         var bad = new CreateSubscriptionRequest(
             "j", "0x", "unknown",
@@ -168,7 +168,7 @@ public class SubscriptionServiceTests
         await t.Db.InitializeSchemaAsync();
         // Force SSRF guard ON for this test by NOT passing the insecure config.
         var svc = new SubscriptionService(
-            new SubscriptionRepository(t.Db));
+            new SubscriptionRepository(t.Db), FakeTargetResolver.Auditable());
 
         await Assert.ThrowsAsync<InvalidOperationException>(
             () => svc.CreateAsync(TickEchoReq(ticks: 1, interval: 60, webhook: url)));
@@ -183,10 +183,10 @@ public class SubscriptionServiceTests
         => new(
             JobId: "job-x",
             BuyerAgent: "0xbuyer",
-            OfferingName: "tick_stream_echo",
+            OfferingName: "security_watch",
             Requirement: new Dictionary<string, object>
             {
-                ["message"]         = "ping",
+                ["agentAddress"]    = "0xecf9773b50f01f3a97b087a6ecdf12a71afc558c",
                 ["intervalSeconds"] = interval,
                 ["ticks"]           = ticks
             },
@@ -216,7 +216,7 @@ public class SubscriptionServiceTests
         await using var t = TestDb.New();
         await t.Db.InitializeSchemaAsync();
         var subs = new SubscriptionRepository(t.Db);
-        var svc = new SubscriptionService(subs, InsecureConfig());
+        var svc = new SubscriptionService(subs, FakeTargetResolver.Auditable(), InsecureConfig());
 
         var resp = await svc.CreateAsync(TickStreamReq(ticks: 3, interval: 60, streamChainId: 8453, streamJobId: "0xabc"));
         var row = await subs.GetByIdAsync(resp.SubscriptionId);
@@ -287,7 +287,7 @@ public class SubscriptionServiceTests
         var svc = NewSvc(t);
 
         var bad = new CreateSubscriptionRequest(
-            "job-x", "0xbuyer", "tick_echo",
+            "job-x", "0xbuyer", "security_watch",
             new Dictionary<string, object>
             {
                 ["message"]         = "ping",
@@ -325,7 +325,7 @@ public class SubscriptionServiceTests
         var req = new CreateSubscriptionRequest(
             JobId: new string('j', SubscriptionService.MaxJobIdLength + 1),
             BuyerAgent: "0xbuyer",
-            OfferingName: "tick_echo",
+            OfferingName: "security_watch",
             Requirement: new Dictionary<string, object>
             {
                 ["message"]         = "ping",
@@ -347,7 +347,7 @@ public class SubscriptionServiceTests
         var req = new CreateSubscriptionRequest(
             JobId: "job-x",
             BuyerAgent: new string('b', SubscriptionService.MaxBuyerAgentLength + 1),
-            OfferingName: "tick_echo",
+            OfferingName: "security_watch",
             Requirement: new Dictionary<string, object>
             {
                 ["message"]         = "ping",
