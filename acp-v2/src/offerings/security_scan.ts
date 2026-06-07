@@ -21,7 +21,7 @@ export const securityScan: Offering = {
     "schema completeness, rate-limit, stub-data leakage) against a 53-pattern catalogue, " +
     "returning per-finding verdicts with evidence, a 0-100 score, a grade, and canonical " +
     "fixes. Read-only, non-intrusive. Supply agentAddress (auto-resolves the surface) or a " +
-    "baseUrl; optionally email the report to a recipientEmail you supply.",
+    "baseUrl; optionally email the report.",
   slaMinutes: 5,
 
   requirementSchema: {
