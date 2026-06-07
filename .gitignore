@@ -18,3 +18,11 @@ acp-v2/.env
 ruvector.db
 # scratch
 _*.txt
+
+# --- ruflo vector store / print dumps / IDE cache (cleanup guard 2026-06-07) ---
+ruvector.db-*
+.vs/
+offerings.txt
+*-for-paste.txt
+print-offerings.out
+print-resources.out
