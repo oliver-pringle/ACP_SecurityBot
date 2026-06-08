@@ -48,7 +48,7 @@ public class ResourceEndpointTests
     }
 
     [Fact]
-    public async Task PatternCatalogue_returns_53_entries()
+    public async Task PatternCatalogue_returns_74_entries()
     {
         using var factory = new ResourceFactory();
         // NO X-API-Key header — the Resource is public.
@@ -61,9 +61,9 @@ public class ResourceEndpointTests
         var root = doc.RootElement;
         Assert.True(root.TryGetProperty("patterns", out var patterns));
         Assert.Equal(JsonValueKind.Array, patterns.ValueKind);
-        Assert.Equal(53, patterns.GetArrayLength());
+        Assert.Equal(74, patterns.GetArrayLength());
         // count field mirrors the array length.
-        Assert.Equal(53, root.GetProperty("count").GetInt32());
+        Assert.Equal(74, root.GetProperty("count").GetInt32());
     }
 
     [Fact]

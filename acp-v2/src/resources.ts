@@ -32,7 +32,7 @@ export const RESOURCES: Record<string, Resource> = {
     url: "/v1/resources/patternCatalogue",
     params: { type: "object", properties: {} },
     description:
-      "FREE. Returns the full 49-pattern security catalogue (P1-P39 + B-series) with " +
+      "FREE. Returns the full 74-pattern security catalogue (P1-P64 + B-series) with " +
       "severity, detection rule, and canonical fix for each. Lets buyer/orchestrator " +
       "agents see exactly what security_scan checks before paying.",
   },

@@ -47,7 +47,7 @@ public class ResendEmailSenderTests
         score = 82,
         grade = "B",
         verdict = "WARN",
-        summary = "18 of 49 observable.",
+        summary = "18 of 74 observable.",
         scannedAt = "2026-05-30T12:00:00Z",
         findings = new[]
         {

@@ -23,7 +23,7 @@ export const securityWatch: Offering = {
     "Recurring security watch for a live ACP agent. Re-scans the target on each tick " +
     "and delivers a DIFF (newly-opened / newly-closed findings) over an HMAC-signed " +
     "webhook only when something changes, so you are alerted to new exposures without " +
-    "noise. Same 49-pattern passive audit as security_scan. Supply agentAddress or " +
+    "noise. Same 74-pattern passive audit as security_scan. Supply agentAddress or " +
     "baseUrl plus a webhookUrl and an interval/tick count.",
   slaMinutes: 5,
 

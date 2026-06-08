@@ -10,11 +10,11 @@ Built via the implementation plan `docs/superpowers/plans/2026-05-30-acp-securit
 - **215/215 C# tests pass; sidecar `tsc` clean; C# build 0 warnings / 0 errors.**
 - Deterministic 8-check passive auditor (P31 headers, P9 disclosure, P10 raw-dump,
   P1/P18 auth posture, P30 error-leak, P32 schema-descriptions, P31-TLS transport,
-  P15/P19 bounded rate-limit hint) against a 49-entry pattern catalogue.
+  P15/P19 bounded rate-limit hint) against a 74-entry pattern catalogue.
 - `POST /v1/internal/scan` (X-API-Key gated): resolve target -> probe once -> run
   checks -> deterministic 0-100 score -> persist -> deliverable JSON. `_emailDelivery`
   only when `emailReport=true`. NOT_AUDITABLE is a normal 200 deliverable.
-- Free public Resources: `/v1/resources/patternCatalogue` (49 entries) and
+- Free public Resources: `/v1/resources/patternCatalogue` (74 entries) and
   `/v1/resources/auditByAgent` (summary only - never raw evidence or URLs, P9/P10).
 - `security_watch` subscription tier: re-scan + diff (newly-opened/closed findings),
   HMAC webhook delivery only on change.
@@ -25,7 +25,7 @@ Built via the implementation plan `docs/superpowers/plans/2026-05-30-acp-securit
 ## Local smoke results (2026-05-30)
 
 - Boot clean: WatchWorker + RetryWorker + BackupWorker start; schema init; listening.
-- `/health` 200; `patternCatalogue` returns 49 patterns (P1..B9, corpus 2026-05-30);
+- `/health` 200; `patternCatalogue` returns 74 patterns (P1..B9, corpus 2026-05-30);
   `auditByAgent` returns `{found:false}` for an unscanned agent with no evidence/URL leak.
 - **Real end-to-end scan** against the live `https://api.acp-metabot.dev` gateway:
   verdict AUDITED, score 97/100 grade A, 5 patterns observable, honest NotObservable

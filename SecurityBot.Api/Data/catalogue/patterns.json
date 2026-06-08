@@ -422,5 +422,173 @@
     "detection": "Server (Kestrel/IIS/versioned) or X-Powered-By / X-AspNet(Mvc)-Version on a reached response. Checked observably by ServerBannerCheck.",
     "canonicalFix": "See KnownBugs.md P43 canonical fix.",
     "referenceBot": "ACP_SecurityBot (Program.cs AddServerHeader=false)"
+  },
+  {
+    "id": "P44",
+    "title": "Public read endpoint reuses internal model instead of an allowlisted DTO",
+    "severity": "Medium",
+    "detection": "See KnownBugs.md P44 detection rule.",
+    "canonicalFix": "See KnownBugs.md P44 canonical fix.",
+    "referenceBot": "ACP_AgentEval - public /v1/eval-dump is built from the"
+  },
+  {
+    "id": "P45",
+    "title": "LLM-generated text returned to buyers/agents with no egress sanitisation",
+    "severity": "Medium",
+    "detection": "See KnownBugs.md P45 detection rule.",
+    "canonicalFix": "See KnownBugs.md P45 canonical fix.",
+    "referenceBot": "ACP_DeFiEval - Services/LlmOutputSanitiser.cs, applied in"
+  },
+  {
+    "id": "P46",
+    "title": "TS sidecar auth fails open at boot when key unset (truthiness-gated check)",
+    "severity": "High",
+    "detection": "See KnownBugs.md P46 detection rule.",
+    "canonicalFix": "See KnownBugs.md P46 canonical fix.",
+    "referenceBot": "ACP_DeFiEval - acp-v2/src/probeServer.ts boot guard"
+  },
+  {
+    "id": "P47",
+    "title": "Economic/authorization guard fails open on an unparseable amount/identity",
+    "severity": "High",
+    "detection": "See KnownBugs.md P47 detection rule.",
+    "canonicalFix": "See KnownBugs.md P47 canonical fix.",
+    "referenceBot": "ACP_DeFiEval - acp-v2/src/proberClient.ts budget.set"
+  },
+  {
+    "id": "P48",
+    "title": "Cross-bot / upstream response field trusted (persisted/served as \"real\") without shape validation",
+    "severity": "High",
+    "detection": "See KnownBugs.md P48 detection rule.",
+    "canonicalFix": "See KnownBugs.md P48 canonical fix.",
+    "referenceBot": "ACP_WitnessBot - EvmAddressValidator.IsHex32 +"
+  },
+  {
+    "id": "P49",
+    "title": "Paid attestation/score presents caller-asserted, server-unverified input as authoritative",
+    "severity": "Medium",
+    "detection": "See KnownBugs.md P49 detection rule.",
+    "canonicalFix": "See KnownBugs.md P49 canonical fix.",
+    "referenceBot": "ACP_WitnessBot - lineage_attest deliverable gains"
+  },
+  {
+    "id": "P50",
+    "title": "Multi-row create validates AFTER the first write (orphan parent row)",
+    "severity": "Medium",
+    "detection": "See KnownBugs.md P50 detection rule.",
+    "canonicalFix": "See KnownBugs.md P50 canonical fix.",
+    "referenceBot": "ACP_WitnessBot - SubscriptionService.CreateAsync hoists"
+  },
+  {
+    "id": "P51",
+    "title": "User-supplied free text published on-chain in plaintext (immutable PII/libel)",
+    "severity": "Medium",
+    "detection": "See KnownBugs.md P51 detection rule.",
+    "canonicalFix": "See KnownBugs.md P51 canonical fix.",
+    "referenceBot": "ACP_EASIssuer - EasConfig.ReviewSchemaString string"
+  },
+  {
+    "id": "P52",
+    "title": "Rate-limit / middleware path-prefix list drifts from the actual mapped routes (dead guard)",
+    "severity": "High",
+    "detection": "See KnownBugs.md P52 detection rule.",
+    "canonicalFix": "See KnownBugs.md P52 canonical fix.",
+    "referenceBot": "ACP_RevokeBot (sub-variant a) + ACP_LiquidGuard"
+  },
+  {
+    "id": "P53",
+    "title": "Subscription/recurring tier inherits the one-shot's logic but NOT its input-validation caps",
+    "severity": "High",
+    "detection": "See KnownBugs.md P53 detection rule.",
+    "canonicalFix": "See KnownBugs.md P53 canonical fix.",
+    "referenceBot": "ACP_RevokeBot - SubscriptionService.ValidateOfferingRequirement"
+  },
+  {
+    "id": "P54",
+    "title": "On-chain string (symbol/name/tokenURI) used as egress text without sanitisation",
+    "severity": "Medium",
+    "detection": "See KnownBugs.md P54 detection rule.",
+    "canonicalFix": "See KnownBugs.md P54 canonical fix.",
+    "referenceBot": "ACP_RevokeBot - OnchainTextSanitizer.Clean applied in"
+  },
+  {
+    "id": "P55",
+    "title": "Public wallet-keyed Resource leaks per-entity correlation / timing metadata",
+    "severity": "Medium",
+    "detection": "See KnownBugs.md P55 detection rule.",
+    "canonicalFix": "See KnownBugs.md P55 canonical fix.",
+    "referenceBot": "ACP_RevokeBot - /v1/resources/quote (stale \"not reachable\""
+  },
+  {
+    "id": "P56",
+    "title": "Public Resource leaks internal cross-bot integration config / live status",
+    "severity": "Low",
+    "detection": "See KnownBugs.md P56 detection rule.",
+    "canonicalFix": "See KnownBugs.md P56 canonical fix.",
+    "referenceBot": "ACP_LiquidGuard - /v1/resources/feedHealth"
+  },
+  {
+    "id": "P57",
+    "title": "RPC / Web3 client built with no request timeout and no https:// scheme validation",
+    "severity": "Medium",
+    "detection": "See KnownBugs.md P57 detection rule.",
+    "canonicalFix": "See KnownBugs.md P57 canonical fix.",
+    "referenceBot": "ACP_LiquidGuard - RpcClients.BuildClient (10s timeout) +"
+  },
+  {
+    "id": "P58",
+    "title": "Success-path diagnostic field leaks raw upstream/RPC `ex.Message`",
+    "severity": "Medium",
+    "detection": "See KnownBugs.md P58 detection rule.",
+    "canonicalFix": "See KnownBugs.md P58 canonical fix.",
+    "referenceBot": "ACP_LiquidGuard - LiquidationCalldataService.ClassifyGasEstimateError"
+  },
+  {
+    "id": "P59",
+    "title": "Subscription pending-run insert is not idempotent (crash -> stuck-forever throw-loop)",
+    "severity": "Medium",
+    "detection": "See KnownBugs.md P59 detection rule.",
+    "canonicalFix": "See KnownBugs.md P59 canonical fix.",
+    "referenceBot": "ACP_LiquidGuard - SubscriptionRunRepository.InsertPendingAsync."
+  },
+  {
+    "id": "P60",
+    "title": "Subscription bot has no active-subscription quota (global + per-buyer)",
+    "severity": "Medium",
+    "detection": "See KnownBugs.md P60 detection rule.",
+    "canonicalFix": "See KnownBugs.md P60 canonical fix.",
+    "referenceBot": "ACP_BasicSubscriptionBot (BOILERPLATE SOURCE) -"
+  },
+  {
+    "id": "P61",
+    "title": "Buyer-on-behalf inner-hire auto-funds the counterparty's self-set on-chain budget (no cap)",
+    "severity": "High",
+    "detection": "See KnownBugs.md P61 detection rule.",
+    "canonicalFix": "See KnownBugs.md P61 canonical fix.",
+    "referenceBot": "ACP_Metabot purchaserBuyer.ts (ACPPurchaser Path A). Fix in progress in a"
+  },
+  {
+    "id": "P62",
+    "title": "ACP buyer identity not bound to the on-chain payer (sidecar forwards caller-supplied address)",
+    "severity": "Medium",
+    "detection": "See KnownBugs.md P62 detection rule.",
+    "canonicalFix": "See KnownBugs.md P62 canonical fix.",
+    "referenceBot": "ACP_ButlerBridge seller.ts (bridge_x402_to_acp / bridge_history / bridge_dispute)"
+  },
+  {
+    "id": "P63",
+    "title": "Sidecar relays a raw upstream/microservice error body to the buyer (internal-path + RPC-key disclosure)",
+    "severity": "Medium",
+    "detection": "See KnownBugs.md P63 detection rule.",
+    "canonicalFix": "See KnownBugs.md P63 canonical fix.",
+    "referenceBot": "ACP_ChainlinkBot seller.ts + apiClient.ts + offerings/upload_secrets.ts"
+  },
+  {
+    "id": "P64",
+    "title": "Internal sidecar listener performs a privileged action without auth (signing oracle / control surface)",
+    "severity": "Medium",
+    "detection": "See KnownBugs.md P64 detection rule.",
+    "canonicalFix": "See KnownBugs.md P64 canonical fix.",
+    "referenceBot": "ACP_EASIssuer attestationSigner.ts + C# AttestationSigner.cs caller — fixed"
   }
 ]

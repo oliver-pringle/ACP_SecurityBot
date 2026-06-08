@@ -31,7 +31,7 @@ builder.Services.AddSingleton<SubscriptionRunRepository>();
 builder.Services.AddSingleton<ScanRepository>();
 builder.Services.AddSingleton<EmailLogRepository>();
 
-// Pattern catalogue (49 entries: P1-P39 cross-cutting + P31-TLS + B1-B9). The
+// Pattern catalogue (74 entries: P1-P64 cross-cutting + P31-TLS + B1-B9). The
 // parameterless ctor loads the copy placed next to the API assembly by the
 // csproj <None Include CopyToOutputDirectory>. Singleton — the file is read
 // once at first resolution and held in memory.
@@ -435,7 +435,7 @@ app.MapGet("/subscriptions/{id}", async (string id, HttpContext ctx, Subscriptio
 // Resources stay reachable even when the X-API-Key middleware is on —
 // the middleware above whitelists /v1/resources/* alongside /health.
 
-// patternCatalogue — the full P1-P39 + B1-B9 catalogue (49 entries). Free public
+// patternCatalogue — the full P1-P64 + B1-B9 catalogue (74 entries). Free public
 // recon: the differentiator vs generic Solidity auditors. No DB, no secrets.
 app.MapGet("/v1/resources/patternCatalogue", (PatternCatalogue catalogue) =>
     Results.Ok(new
@@ -489,7 +489,7 @@ app.MapGet("/v1/resources/offerings", () => Results.Ok(new
         new
         {
             name = "security_scan",
-            description = "Dynamic passive security audit of a live ACP agent against the P1-P43 KnownBugs catalogue.",
+            description = "Dynamic passive security audit of a live ACP agent against the P1-P64 KnownBugs catalogue.",
             priceUsdc = 1.00m,
             priceType = "fixed",
             internalPath = "/v1/internal/scan",

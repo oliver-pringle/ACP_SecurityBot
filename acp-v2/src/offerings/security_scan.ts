@@ -18,7 +18,7 @@ export const securityScan: Offering = {
   description:
     "Dynamic passive security audit of a live ACP agent. Probes its public HTTP surface " +
     "(headers, CORS, server banners, resource over-disclosure, error-leak, auth posture, " +
-    "schema completeness, rate-limit, stub-data leakage) against a 53-pattern catalogue, " +
+    "schema completeness, rate-limit, stub-data leakage) against a 74-pattern catalogue, " +
     "returning per-finding verdicts with evidence, a 0-100 score, a grade, and canonical " +
     "fixes. Read-only, non-intrusive. Supply agentAddress (auto-resolves the surface) or a " +
     "baseUrl; optionally email the report.",
@@ -152,7 +152,7 @@ export const securityScan: Offering = {
     score: 82,
     grade: "B",
     observableCount: 18,
-    totalPatterns: 49,
+    totalPatterns: 74,
     findings: [
       {
         patternId: "P31",
@@ -172,7 +172,7 @@ export const securityScan: Offering = {
       },
     ],
     summary:
-      "18 of 49 patterns were observable. One medium-severity header gap (P31) was found; " +
+      "18 of 74 patterns were observable. One medium-severity header gap (P31) was found; " +
       "error-leak and auth posture passed. Score 82 (grade B).",
     verdict: "WARN",
   },

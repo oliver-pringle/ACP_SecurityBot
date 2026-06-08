@@ -18,8 +18,8 @@ public sealed record PatternEntry(
     string ReferenceBot);
 
 // Loads + indexes the pattern catalogue from disk. The full corpus the bot
-// audits against (P1-P39 cross-cutting + P31-TLS + B1-B9 bot-specific = 49
-// entries as of corpus 2026-05-30).
+// audits against (P1-P64 cross-cutting + P31-TLS + B1-B9 bot-specific = 74
+// entries as of corpus 2026-06-08).
 //
 // File-location choice: production uses the parameterless ctor, which resolves
 // the file copied next to the API assembly (AppContext.BaseDirectory +
@@ -29,7 +29,7 @@ public sealed record PatternEntry(
 // content file.
 public sealed class PatternCatalogue
 {
-    public const string DefaultCorpusVersion = "2026-05-30";
+    public const string DefaultCorpusVersion = "2026-06-08";
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
