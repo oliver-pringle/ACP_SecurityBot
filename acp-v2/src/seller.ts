@@ -76,12 +76,15 @@ async function main() {
     const job = session.job ?? (await session.fetchJob());
     const offeringName = job.description;
 
-    const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
-    if (job.evaluatorAddress.toLowerCase() !== ZERO_ADDRESS) {
-      await session.sendMessage(
-        `unsupported: this seller only accepts jobs with evaluatorAddress=${ZERO_ADDRESS}. Got: ${job.evaluatorAddress}`
-      );
-      return;
+    const ALLOW_NONZERO_EVALUATOR = process.env.ALLOW_NONZERO_EVALUATOR === "true";
+    if (!ALLOW_NONZERO_EVALUATOR) {
+      const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
+      if (job.evaluatorAddress.toLowerCase() !== ZERO_ADDRESS) {
+        await session.sendMessage(
+          `unsupported: this seller only accepts jobs with evaluatorAddress=${ZERO_ADDRESS}. Got: ${job.evaluatorAddress}`
+        );
+        return;
+      }
     }
 
     const offering = getOffering(offeringName);
