@@ -45,6 +45,25 @@ public class DynamicAuditEngineTests
     }
 
     [Fact]
+    public async Task ScanAsync_when_nothing_reachable_is_NOT_AUDITABLE_not_a_perfect_score()
+    {
+        // Fetcher with NO canned responses => every probe Reached=false => every
+        // check abstains (NotObservable) => observableCount 0. A resolvable-but-
+        // unreachable target must be reported honestly as NOT_AUDITABLE, never as a
+        // misleading 100/A "AUDITED" (we never actually saw the surface).
+        var fetcher = new FakeFetcher();
+        var checks = new IProbeCheck[] { new SecurityHeadersCheck(), new TlsTransportCheck() };
+        var engine = new DynamicAuditEngine(fetcher, checks, corpusVersion: "test-1");
+
+        var report = await engine.ScanAsync(
+            new ScanTarget(AgentAddress: "0xabc", BaseUrl: "https://unreachable.example", ResolvedVia: "baseUrl"),
+            default);
+
+        Assert.Equal(0, report.ObservableCount);
+        Assert.Equal("NOT_AUDITABLE", report.Verdict);
+    }
+
+    [Fact]
     public async Task ScanAsync_probes_each_label_at_most_the_budget()
     {
         var fetcher = new FakeFetcher();

@@ -579,6 +579,23 @@ app.MapPost("/v1/internal/scan", async (
             req.AgentAddress, resolved.BaseUrl!, resolved.ResolvedVia, resolved.ResourceUrls);
         var report = await engine.ScanAsync(target, ct);
 
+        // Resolvable but UNREACHABLE: the engine observed nothing (every probe failed
+        // to connect), so this is honestly NOT_AUDITABLE — not a 100/A. Mirror the
+        // resolver-level NOT_AUDITABLE branch above: a normal 200 deliverable with no
+        // score/grade, and no scan row (a misleading "grade A" must never be persisted
+        // or surfaced via auditByAgent for a surface we never saw).
+        if (string.Equals(report.Verdict, "NOT_AUDITABLE", StringComparison.Ordinal))
+        {
+            return Results.Ok(new
+            {
+                agentAddress = req.AgentAddress,
+                baseUrl = report.BaseUrl,
+                resolvedVia = report.ResolvedVia,
+                verdict = "NOT_AUDITABLE",
+                reason = "no externally observable surface was reachable",
+            });
+        }
+
         // Persist the scan + its findings atomically. FindingCount = report
         // findings count; corpus version stamped from the engine's constant.
         var rec = new ScanRecord(

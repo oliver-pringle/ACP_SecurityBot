@@ -91,12 +91,30 @@ public sealed class DynamicAuditEngine
         foreach (var check in _checks)
             findings.Add(await check.RunAsync(ctx, ct).ConfigureAwait(false));
 
-        // 4. Score from observable findings only.
-        var (score, grade) = ScoreCalculator.Compute(findings);
+        // 4. How many patterns could we actually observe?
         var observableCount = findings.Count(f =>
             f.Verdict is Verdict.Present or Verdict.Partial or Verdict.Pass);
 
-        // 5/6. Assemble the report.
+        // If NOTHING was externally observable — every probe failed to connect, so
+        // every check abstained — the target was resolvable but UNREACHABLE. That is
+        // not a clean bill of health: emitting 100/A here would falsely imply we
+        // audited a surface we never actually saw. Report it honestly as
+        // NOT_AUDITABLE (no meaningful score). Downstream (Metabot TheSecurityBotClient)
+        // maps this verdict to status=not_auditable + null score, exactly like an
+        // unresolvable target; the scan endpoint + WatchWorker skip persistence for it.
+        if (observableCount == 0)
+        {
+            return new ScanReport(
+                target.AgentAddress, target.BaseUrl, target.ResolvedVia,
+                DateTime.UtcNow, Score: 0, Grade: "N/A",
+                ObservableCount: 0, TotalPatternCount, findings,
+                Summary: $"No externally observable surface was reachable; " +
+                         $"{findings.Count} patterns abstained. NOT_AUDITABLE.",
+                Verdict: "NOT_AUDITABLE");
+        }
+
+        // 5. Score from observable findings only, then assemble the report.
+        var (score, grade) = ScoreCalculator.Compute(findings);
         var summary =
             $"Audited {observableCount} patterns externally; {findings.Count} findings; " +
             $"score {score}/100 (grade {grade}).";

@@ -159,6 +159,16 @@ public class WatchWorker : BackgroundService
             await subs.RecordTickResultAsync(sub.Id, false, DateTime.UtcNow, nextRunAt, completed);
             return;
         }
+        // Resolvable but UNREACHABLE this tick (engine observed nothing) -> honestly
+        // NOT_AUDITABLE: there is nothing to diff or persist, and storing a misleading
+        // all-abstained "scan" would corrupt the next tick's diff baseline. Advance the
+        // schedule and treat it as a no-delivery tick (same shape as the no-baseUrl path).
+        if (string.Equals(report.Verdict, "NOT_AUDITABLE", StringComparison.Ordinal))
+        {
+            await subs.RecordTickResultAsync(sub.Id, false, DateTime.UtcNow, nextRunAt, completed);
+            return;
+        }
+
         var diff = WatchDiff.Compute(prevFindings, report.Findings);
 
         // Persist the fresh scan so the NEXT tick diffs against it (and so the

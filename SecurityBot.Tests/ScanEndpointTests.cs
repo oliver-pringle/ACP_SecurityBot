@@ -17,10 +17,11 @@ namespace SecurityBot.Tests;
 // DynamicAuditEngineTests). The host is made hermetic two ways:
 //   - ITargetResolver is replaced with a fake returning a fixed Auditable
 //     target, so no marketplace HTTP fires.
-//   - IProbeFetcher is replaced with a fake returning reached:false for every
-//     probe, so the real ProbeClient never touches the network. The 8 checks
-//     all return NotObservable against unreached probes, so the scan completes
-//     deterministically and writes a real scan row to a temp SQLite file.
+//   - IProbeFetcher is replaced with a fake so the real ProbeClient never touches
+//     the network: ReachableFetcher (probes connect, clean headers) drives a real
+//     AUDITED scored deliverable; FakeFetcher (reached:false for every probe) makes
+//     every check abstain -> observableCount 0 -> the engine reports NOT_AUDITABLE
+//     (resolvable-but-unreachable), which the endpoint surfaces without a score.
 public class ScanEndpointTests
 {
     private const string TestApiKey = "test-internal-key";
@@ -57,11 +58,39 @@ public class ScanEndpointTests
                 services.RemoveAll<ITargetResolver>();
                 services.AddSingleton<ITargetResolver>(new FakeResolver(auditable: true));
 
-                // Fake fetcher: reached:false for everything -> no network.
+                // Reachable fetcher: probes connect with clean headers -> at least
+                // one check is observable -> a real AUDITED scored deliverable.
+                services.RemoveAll<IProbeFetcher>();
+                services.AddSingleton<IProbeFetcher>(new ReachableFetcher());
+            });
+
+            return base.CreateHost(builder);
+        }
+    }
+
+    // Auditable resolve, but every probe fails to connect -> the engine observes
+    // nothing -> the endpoint must return NOT_AUDITABLE (not a 100/A scored row).
+    private sealed class UnreachableAuditableFactory : WebApplicationFactory<Program>
+    {
+        protected override IHost CreateHost(IHostBuilder builder)
+        {
+            var dbPath = Path.Combine(Path.GetTempPath(), $"securitybot-scan-test-{Guid.NewGuid():N}.db");
+            builder.ConfigureHostConfiguration(cfg =>
+            {
+                cfg.AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["ConnectionStrings:Sqlite"] = $"Data Source={dbPath};Cache=Shared",
+                    ["ApiKey"] = TestApiKey,
+                    ["ASPNETCORE_ENVIRONMENT"] = "Development",
+                });
+            });
+            builder.ConfigureServices(services =>
+            {
+                services.RemoveAll<ITargetResolver>();
+                services.AddSingleton<ITargetResolver>(new FakeResolver(auditable: true));
                 services.RemoveAll<IProbeFetcher>();
                 services.AddSingleton<IProbeFetcher>(new FakeFetcher());
             });
-
             return base.CreateHost(builder);
         }
     }
@@ -105,6 +134,8 @@ public class ScanEndpointTests
                     "agentAddress or baseUrl is required"));
     }
 
+    // Probes all fail to connect (reached:false) -> every check abstains ->
+    // observableCount 0 -> the engine reports NOT_AUDITABLE.
     private sealed class FakeFetcher : IProbeFetcher
     {
         public int MaxRateLimitProbes => 1;
@@ -114,6 +145,24 @@ public class ScanEndpointTests
                 label, url, 0,
                 new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase),
                 string.Empty, false));
+    }
+
+    // Probes connect (reached:true) with clean security headers, so at least one
+    // check is observable -> a genuine AUDITED scored deliverable.
+    private sealed class ReachableFetcher : IProbeFetcher
+    {
+        public int MaxRateLimitProbes => 1;
+
+        public Task<ProbeResponse> FetchAsync(string label, string url, CancellationToken ct)
+            => Task.FromResult(new ProbeResponse(
+                label, url, 200,
+                new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["X-Frame-Options"] = "DENY",
+                    ["Content-Security-Policy"] = "default-src 'none'; frame-ancestors 'none'",
+                    ["Strict-Transport-Security"] = "max-age=63072000",
+                },
+                "{}", true));
     }
 
     private static HttpClient Authed(WebApplicationFactory<Program> factory)
@@ -155,6 +204,25 @@ public class ScanEndpointTests
             Assert.Equal(JsonValueKind.String, f.GetProperty("severity").ValueKind);
             Assert.Equal(JsonValueKind.String, f.GetProperty("verdict").ValueKind);
         }
+    }
+
+    [Fact]
+    public async Task Auditable_but_unreachable_target_returns_not_auditable_without_a_score()
+    {
+        // Regression: a resolvable target whose surface can't be reached must NOT be
+        // scored 100/A. The engine observes nothing -> NOT_AUDITABLE; the deliverable
+        // carries no score/grade (so no misleading "A" reaches buyers or is persisted).
+        using var factory = new UnreachableAuditableFactory();
+        using var client = Authed(factory);
+
+        var resp = await client.PostAsJsonAsync("/v1/internal/scan", new { baseUrl = "https://unreachable.example" });
+        Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
+
+        using var doc = JsonDocument.Parse(await resp.Content.ReadAsStringAsync());
+        var root = doc.RootElement;
+        Assert.Equal("NOT_AUDITABLE", root.GetProperty("verdict").GetString());
+        Assert.False(root.TryGetProperty("score", out _), "NOT_AUDITABLE deliverable must not carry a score");
+        Assert.False(root.TryGetProperty("grade", out _), "NOT_AUDITABLE deliverable must not carry a grade");
     }
 
     [Fact]
