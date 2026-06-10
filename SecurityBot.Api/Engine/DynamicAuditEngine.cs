@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using SecurityBot.Api.Services;
 
 namespace SecurityBot.Api.Engine;
@@ -25,10 +26,12 @@ public sealed record ScanReport(
 // with a fake fetcher and zero network.
 public sealed class DynamicAuditEngine
 {
-    // The full SecurityBot pattern catalogue size (P1-P31 cross-cutting + B1-B7 +
-    // checklist-derived). The denominator for "patterns this bot knows about", used
-    // to frame how many were externally OBSERVABLE in any given scan.
-    private const int TotalPatternCount = 48;
+    // The full SecurityBot pattern catalogue size — the denominator for "patterns
+    // this bot knows about", used to frame how many were externally OBSERVABLE in any
+    // given scan. Kept in lockstep with Data/catalogue/patterns.json (P1-P64 + P31-TLS
+    // + B1-B9 = 74). Was a stale 48 (P1-P31 era) which under-reported the denominator
+    // on every persisted scan.
+    private const int TotalPatternCount = 74;
 
     // Cap on advertised Resource URLs we will probe, to stay well within the
     // per-scan request budget regardless of how many the marketplace lists.
@@ -41,12 +44,16 @@ public sealed class DynamicAuditEngine
     private readonly IProbeFetcher _fetcher;
     private readonly IReadOnlyList<IProbeCheck> _checks;
     private readonly string _corpusVersion;
+    private readonly ILogger<DynamicAuditEngine>? _logger;
 
-    public DynamicAuditEngine(IProbeFetcher fetcher, IEnumerable<IProbeCheck> checks, string corpusVersion)
+    public DynamicAuditEngine(
+        IProbeFetcher fetcher, IEnumerable<IProbeCheck> checks, string corpusVersion,
+        ILogger<DynamicAuditEngine>? logger = null)
     {
         _fetcher = fetcher;
         _checks = checks.ToList();
         _corpusVersion = corpusVersion;
+        _logger = logger;
     }
 
     public async Task<ScanReport> ScanAsync(ScanTarget target, CancellationToken ct)
@@ -104,6 +111,15 @@ public sealed class DynamicAuditEngine
         // unresolvable target; the scan endpoint + WatchWorker skip persistence for it.
         if (observableCount == 0)
         {
+            // Diagnostic (low-noise: fires ONLY on the NOT_AUDITABLE outcome we are
+            // debugging). Per-probe label:status:Reached lets an operator see WHY
+            // nothing was observable — every probe unreached (network/timeout/SSRF-
+            // blocked) vs reached-but-all-checks-abstained. WARNING level so it
+            // surfaces regardless of the configured minimum log level.
+            _logger?.LogWarning(
+                "[scan-diag] NOT_AUDITABLE base={Base} via={Via} probes=[{Probes}]",
+                target.BaseUrl, target.ResolvedVia,
+                string.Join(" ", responses.Select(r => $"{r.Label}:{r.StatusCode}:{(r.Reached ? "R" : "x")}")));
             return new ScanReport(
                 target.AgentAddress, target.BaseUrl, target.ResolvedVia,
                 DateTime.UtcNow, Score: 0, Grade: "N/A",

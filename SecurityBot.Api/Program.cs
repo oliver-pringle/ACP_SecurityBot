@@ -84,11 +84,15 @@ builder.Services.AddSingleton<IProbeCheck, TlsTransportCheck>();
 builder.Services.AddSingleton<IProbeCheck, CorsCheck>();          // P42 wildcard CORS
 builder.Services.AddSingleton<IProbeCheck, ServerBannerCheck>();  // P43 verbose server/framework banner
 builder.Services.AddSingleton<IProbeCheck, StubDataCheck>();      // P38 stub/placeholder markers in served bodies
-const string CorpusVersion = "2026-05-30";
+// Single source of truth: the persisted-scan stamp == the served patternCatalogue
+// resource's version, so they can never drift. Bump PatternCatalogue.DefaultCorpusVersion
+// when the catalogue (patterns.json) changes and both move together.
+const string CorpusVersion = PatternCatalogue.DefaultCorpusVersion;
 builder.Services.AddSingleton(sp => new DynamicAuditEngine(
     sp.GetRequiredService<IProbeFetcher>(),
     sp.GetServices<IProbeCheck>(),
-    CorpusVersion));
+    CorpusVersion,
+    sp.GetService<ILogger<DynamicAuditEngine>>()));
 
 // Marketplace fetch lane for the resolver. A dedicated HttpClient (short
 // timeout, no auto-redirect) is used to GET the V2 marketplace agent record and
@@ -536,6 +540,7 @@ app.MapPost("/v1/internal/scan", async (
     ScanRepository scanRepo,
     EmailLogRepository emailLog,
     IEmailSender emailSender,
+    ILoggerFactory loggerFactory,
     CancellationToken ct) =>
 {
     try
@@ -565,6 +570,12 @@ app.MapPost("/v1/internal/scan", async (
         // one. No scan row is written for a non-auditable target.
         if (!resolved.Auditable)
         {
+            // Diagnostic: distinguishes a resolver-level NOT_AUDITABLE (no registered
+            // resource URLs / bad baseUrl) from the engine-level one (probed but
+            // observableCount==0, logged by the engine). WARNING so it surfaces.
+            loggerFactory.CreateLogger("ScanEndpoint").LogWarning(
+                "[scan-diag] resolver NOT_AUDITABLE addr={Addr} via={Via} reason={Reason} resourceUrls={N}",
+                req.AgentAddress, resolved.ResolvedVia, resolved.Reason, resolved.ResourceUrls?.Count ?? 0);
             return Results.Ok(new
             {
                 agentAddress = req.AgentAddress,
