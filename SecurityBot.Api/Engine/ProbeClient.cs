@@ -53,6 +53,14 @@ public sealed class ProbeClient : IDisposable, IProbeFetcher
         _http.DefaultRequestHeaders.UserAgent.ParseAdd(UserAgent);
     }
 
+    // Reset the per-scan request budget. This client is a SINGLETON (one HttpClient +
+    // SSRF handler reused across every scan), so _requestCount must be zeroed at the
+    // start of each scan; otherwise the MaxRequestsPerScan cap becomes a per-PROCESS
+    // cap that, once crossed (~2-3 scans, or the background WatchWorker), makes every
+    // future probe short-circuit to reached=false and every agent read NOT_AUDITABLE.
+    // The engine calls this at the top of ScanAsync.
+    public void BeginScan() => Interlocked.Exchange(ref _requestCount, 0);
+
     // Pure SSRF classifier. Returns true if the bot must REFUSE to connect to
     // this address. Modelled on OracleBot's WebhookUrlValidator private-range
     // bit-math, but with the intent INVERTED: every private/reserved range is

@@ -58,6 +58,11 @@ public sealed class DynamicAuditEngine
 
     public async Task<ScanReport> ScanAsync(ScanTarget target, CancellationToken ct)
     {
+        // Reset the fetcher's per-scan request budget. ProbeClient is a singleton; without
+        // this its MaxRequestsPerScan cap accumulates across scans + the WatchWorker and
+        // permanently exhausts (every probe -> reached=false -> NOT_AUDITABLE for all).
+        _fetcher.BeginScan();
+
         var baseUrl = target.BaseUrl.TrimEnd('/');
         var responses = new List<ProbeResponse>();
 
