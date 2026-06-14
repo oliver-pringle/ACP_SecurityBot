@@ -646,5 +646,37 @@
     "detection": "See KnownBugs.md B12 detection rule.",
     "canonicalFix": "See KnownBugs.md B12 canonical fix.",
     "referenceBot": "ACP_ChainlinkBot VrfSubscriptionService + NethereumVrfRequester — FIXED 2026-06-14"
+  },
+  {
+    "id": "P31-Cache",
+    "title": "Missing Cache-Control: no-store on sensitive endpoint",
+    "severity": "Low",
+    "detection": "Sensitive (non-Resource) endpoints missing Cache-Control: no-store header. Checked observably by CacheControlCheck.",
+    "canonicalFix": "Add Cache-Control: no-store to all non-public endpoints. Related to P31.",
+    "referenceBot": "ACP_SecurityBot (CacheControlCheck) - every-response middleware emits no-store on sensitive paths"
+  },
+  {
+    "id": "P43-Body",
+    "title": "Response body discloses framework/runtime version",
+    "severity": "Low",
+    "detection": "JSON response bodies containing framework version strings (dotnetVersion, nodeVersion, sdkVersion, etc.). Checked observably by VersionLeakCheck.",
+    "canonicalFix": "Remove runtime/framework version fields from public response bodies. Related to P43.",
+    "referenceBot": "ACP_SecurityBot (VersionLeakCheck)"
+  },
+  {
+    "id": "P21-Hint",
+    "title": "Response discloses server-side timing",
+    "severity": "Low",
+    "detection": "Response headers X-Response-Time, X-Runtime, Server-Timing, etc. Checked observably by TimingHeaderCheck.",
+    "canonicalFix": "Remove timing disclosure headers from production responses. Related to P21.",
+    "referenceBot": "ACP_SecurityBot (TimingHeaderCheck)"
+  },
+  {
+    "id": "P1-Debug",
+    "title": "Debug/diagnostic surface exposed",
+    "severity": "High",
+    "detection": "Debug endpoints (/debug, /_debug, etc.) responding successfully, or debug:true markers in JSON bodies. Checked observably by DebugEndpointCheck.",
+    "canonicalFix": "Disable debug endpoints in production; remove debug flags from responses. Related to P1.",
+    "referenceBot": "ACP_SecurityBot (DebugEndpointCheck)"
   }
 ]

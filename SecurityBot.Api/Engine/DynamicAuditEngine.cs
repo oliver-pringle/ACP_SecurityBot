@@ -28,10 +28,9 @@ public sealed class DynamicAuditEngine
 {
     // The full SecurityBot pattern catalogue size — the denominator for "patterns
     // this bot knows about", used to frame how many were externally OBSERVABLE in any
-    // given scan. Kept in lockstep with Data/catalogue/patterns.json (P1-P64 + P31-TLS
-    // + B1-B9 = 74). Was a stale 48 (P1-P31 era) which under-reported the denominator
-    // on every persisted scan.
-    private const int TotalPatternCount = 74;
+    // given scan. Kept in lockstep with Data/catalogue/patterns.json (P1-P68 + P31-TLS
+    // + P31-Cache + P43-Body + P21-Hint + P1-Debug + B1-B12 = 85).
+    private const int TotalPatternCount = 85;
 
     // Cap on advertised Resource URLs we will probe, to stay well within the
     // per-scan request budget regardless of how many the marketplace lists.

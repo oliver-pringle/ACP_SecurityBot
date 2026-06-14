@@ -35,12 +35,16 @@ public class DogfoodSelfScanTests
 
     private static ProbeResponse Resp(
         string label, int status, string body, string url,
-        string contentType = "application/json; charset=utf-8")
+        string contentType = "application/json; charset=utf-8",
+        bool noStore = false)
     {
         var headers = new Dictionary<string, string>(SecurityHeaders, StringComparer.OrdinalIgnoreCase)
         {
             ["Content-Type"] = contentType,
         };
+        // Sensitive endpoints (non-Resource, non-health) must carry Cache-Control: no-store.
+        if (noStore)
+            headers["Cache-Control"] = "no-store";
         return new ProbeResponse(label, url, status, headers, body, Reached: true);
     }
 
@@ -58,6 +62,10 @@ public class DogfoodSelfScanTests
         new CorsCheck(),
         new ServerBannerCheck(),
         new StubDataCheck(),
+        new CacheControlCheck(),
+        new VersionLeakCheck(),
+        new TimingHeaderCheck(),
+        new DebugEndpointCheck(),
     };
 
     // Build the context that mirrors SecurityBot's OWN good production shape.
@@ -68,8 +76,9 @@ public class DogfoodSelfScanTests
         // /health - clean envelope, all P31 headers, no EOA/RPC/dump markers.
         var health = Resp("health", 200, "{\"status\":\"ok\"}", baseUrl + "/health");
 
-        // root - also carries the headers (every-response middleware).
-        var root = Resp("root", 404, "{\"error\":\"NOT_FOUND\"}", baseUrl + "/");
+        // root - also carries the headers (every-response middleware), plus
+        // Cache-Control: no-store since it's not a Resource or /health.
+        var root = Resp("root", 404, "{\"error\":\"NOT_FOUND\"}", baseUrl + "/", noStore: true);
 
         // resource_0 - a clean Resource body whose schema has a description on
         // EVERY property. No operator EOA, no keyed RPC URL, no DB column names,
@@ -88,13 +97,18 @@ public class DogfoodSelfScanTests
 
         // paid_unauth - the paid scan endpoint must reject an unauthenticated
         // probe. SecurityBot's X-API-Key middleware returns 401 => AuthPosture Pass.
-        var paidUnauth = Resp("paid_unauth", 401, "unauthorized", baseUrl + "/v1/internal/scan",
-            contentType: "text/plain; charset=utf-8");
+        // Carries no-store since it's a sensitive endpoint.
+        var paidUnauthHeaders = new Dictionary<string, string>(SecurityHeaders, StringComparer.OrdinalIgnoreCase)
+        {
+            ["Content-Type"] = "text/plain; charset=utf-8",
+            ["Cache-Control"] = "no-store",
+        };
+        var paidUnauth = new ProbeResponse("paid_unauth", baseUrl + "/v1/internal/scan", 401, paidUnauthHeaders, "unauthorized", Reached: true);
 
         // malformed - stable INTERNAL_ERROR envelope, NO stack/exception/path/
-        // internal-host markers => ErrorLeak Pass.
+        // internal-host markers => ErrorLeak Pass. Carries no-store.
         var malformed = Resp("malformed", 500, "{\"error\":\"INTERNAL_ERROR\"}",
-            baseUrl + "/v1/__securitybot_probe__?x=%ff");
+            baseUrl + "/v1/__securitybot_probe__?x=%ff", noStore: true);
 
         // ratelimit_probe - the bounded burst observed a 429 (RateLimitMiddleware
         // is wired before auth) => RateLimitHint Pass. The engine synthesizes this
@@ -141,14 +155,14 @@ public class DogfoodSelfScanTests
     }
 
     [Fact]
-    public async Task SecurityBot_self_scan_runs_all_eleven_checks()
+    public async Task SecurityBot_self_scan_runs_all_fifteen_checks()
     {
         var ctx = SelfShapeContext();
         var findings = new List<Finding>();
         foreach (var check in AllChecks())
             findings.Add(await check.RunAsync(ctx, default));
 
-        Assert.Equal(11, findings.Count);
+        Assert.Equal(15, findings.Count);
         // Each of the six observable checks lands a Pass on our clean surface;
         // P9/P10/P32 and the headers/auth/error/ratelimit checks must all be
         // Pass or NotObservable (never Present, never Partial that drags score).

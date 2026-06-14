@@ -4,7 +4,8 @@ using Xunit;
 namespace SecurityBot.Tests;
 
 // Loads the REAL catalogue file (SecurityBot.Api/Data/catalogue/patterns.json,
-// 74 entries: P1-P64 + P31-TLS + B1-B9). The test points the (string path) ctor
+// 85 entries: P1-P68 + P31-TLS + P31-Cache + P43-Body + P21-Hint + P1-Debug + B1-B12).
+// The test points the (string path) ctor
 // at the in-repo source file, located relative to the test assembly so it works
 // regardless of CWD. The parameterless ctor (AppContext.BaseDirectory) is what
 // production uses; the csproj copies the file into the API output for that path.
@@ -25,10 +26,10 @@ public class PatternCatalogueTests
     }
 
     [Fact]
-    public void Loads_all_74_patterns()
+    public void Loads_all_85_patterns()
     {
         var cat = new PatternCatalogue(SourceCataloguePath());
-        Assert.Equal(74, cat.All().Count);
+        Assert.Equal(85, cat.All().Count);
     }
 
     [Fact]

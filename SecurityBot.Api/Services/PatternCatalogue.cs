@@ -18,8 +18,8 @@ public sealed record PatternEntry(
     string ReferenceBot);
 
 // Loads + indexes the pattern catalogue from disk. The full corpus the bot
-// audits against (P1-P64 cross-cutting + P31-TLS + B1-B9 bot-specific = 74
-// entries as of corpus 2026-06-08).
+// audits against (P1-P68 cross-cutting + P31-TLS + P31-Cache + P43-Body +
+// P21-Hint + P1-Debug + B1-B12 bot-specific = 85 entries as of corpus 2026-06-14).
 //
 // File-location choice: production uses the parameterless ctor, which resolves
 // the file copied next to the API assembly (AppContext.BaseDirectory +

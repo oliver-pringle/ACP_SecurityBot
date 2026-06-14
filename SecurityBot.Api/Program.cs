@@ -84,6 +84,10 @@ builder.Services.AddSingleton<IProbeCheck, TlsTransportCheck>();
 builder.Services.AddSingleton<IProbeCheck, CorsCheck>();          // P42 wildcard CORS
 builder.Services.AddSingleton<IProbeCheck, ServerBannerCheck>();  // P43 verbose server/framework banner
 builder.Services.AddSingleton<IProbeCheck, StubDataCheck>();      // P38 stub/placeholder markers in served bodies
+builder.Services.AddSingleton<IProbeCheck, CacheControlCheck>(); // P31-Cache no-store on sensitive endpoints
+builder.Services.AddSingleton<IProbeCheck, VersionLeakCheck>();  // P43-Body framework version in response bodies
+builder.Services.AddSingleton<IProbeCheck, TimingHeaderCheck>(); // P21-Hint timing disclosure headers
+builder.Services.AddSingleton<IProbeCheck, DebugEndpointCheck>();// P1-Debug debug surface exposure
 // Single source of truth: the persisted-scan stamp == the served patternCatalogue
 // resource's version, so they can never drift. Bump PatternCatalogue.DefaultCorpusVersion
 // when the catalogue (patterns.json) changes and both move together.
