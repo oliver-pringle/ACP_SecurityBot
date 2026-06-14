@@ -149,9 +149,9 @@ public class DogfoodSelfScanTests
         foreach (var check in AllChecks())
             findings.Add(await check.RunAsync(ctx, default));
 
-        var (score, grade) = ScoreCalculator.Compute(findings);
-        Assert.Equal(100, score);
-        Assert.Equal("A", grade);
+        var result = ScoreCalculator.Compute(findings);
+        Assert.Equal(100, result.Score);
+        Assert.Equal("A", result.Grade);
     }
 
     [Fact]

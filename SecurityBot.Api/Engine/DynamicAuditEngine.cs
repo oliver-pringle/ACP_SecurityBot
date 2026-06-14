@@ -14,10 +14,12 @@ public sealed record ScanTarget(
 
 // The assembled, honest audit report. Score is from observable findings only;
 // ObservableCount / TotalPatterns make the "what could we actually see" denominator explicit.
+// Coverage band (high/medium/low) and AuditedPatternIds surface the audit's scope.
 public sealed record ScanReport(
     string? AgentAddress, string BaseUrl, string ResolvedVia,
     DateTime ScannedAtUtc, int Score, string Grade,
     int ObservableCount, int TotalPatterns,
+    string Coverage, IReadOnlyList<string> AuditedPatternIds,
     IReadOnlyList<Finding> Findings, string Summary, string Verdict);
 
 // Orchestrates a single scan: probe the target ONCE into a shared ProbeContext, run
@@ -127,22 +129,26 @@ public sealed class DynamicAuditEngine
             return new ScanReport(
                 target.AgentAddress, target.BaseUrl, target.ResolvedVia,
                 DateTime.UtcNow, Score: 0, Grade: "N/A",
-                ObservableCount: 0, TotalPatternCount, findings,
+                ObservableCount: 0, TotalPatternCount,
+                Coverage: "low", AuditedPatternIds: Array.Empty<string>(),
+                Findings: findings,
                 Summary: $"No externally observable surface was reachable; " +
                          $"{findings.Count} patterns abstained. NOT_AUDITABLE.",
                 Verdict: "NOT_AUDITABLE");
         }
 
         // 5. Score from observable findings only, then assemble the report.
-        var (score, grade) = ScoreCalculator.Compute(findings);
+        var scoreResult = ScoreCalculator.Compute(findings);
+        var coverageStr = scoreResult.Coverage.ToString().ToLowerInvariant();
         var summary =
             $"Audited {observableCount} patterns externally; {findings.Count} findings; " +
-            $"score {score}/100 (grade {grade}).";
+            $"score {scoreResult.Score}/100 (grade {scoreResult.Grade}, coverage {coverageStr}).";
 
         return new ScanReport(
             target.AgentAddress, target.BaseUrl, target.ResolvedVia,
-            DateTime.UtcNow, score, grade, observableCount, TotalPatternCount,
-            findings, summary, "AUDITED");
+            DateTime.UtcNow, scoreResult.Score, scoreResult.Grade, observableCount, TotalPatternCount,
+            Coverage: coverageStr, AuditedPatternIds: scoreResult.AuditedPatternIds,
+            Findings: findings, Summary: summary, Verdict: "AUDITED");
     }
 
     // Resolve a resource URL: absolute http(s) URLs are used as-is; anything else is
