@@ -29,7 +29,7 @@ public sealed record PatternEntry(
 // content file.
 public sealed class PatternCatalogue
 {
-    public const string DefaultCorpusVersion = "2026-06-08";
+    public const string DefaultCorpusVersion = "2026-06-14";
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {

@@ -590,5 +590,61 @@
     "detection": "See KnownBugs.md P64 detection rule.",
     "canonicalFix": "See KnownBugs.md P64 canonical fix.",
     "referenceBot": "ACP_EASIssuer attestationSigner.ts + C# AttestationSigner.cs caller — fixed"
+  },
+  {
+    "id": "P65",
+    "title": "Multi-tenant resource/secret referenced by a caller-supplied id with no owner binding",
+    "severity": "High",
+    "detection": "See KnownBugs.md P65 detection rule.",
+    "canonicalFix": "See KnownBugs.md P65 canonical fix.",
+    "referenceBot": "ACP_ChainlinkBot DON-Hosted Secrets (functions_secrets / upload_secrets) — B10"
+  },
+  {
+    "id": "P66",
+    "title": "On-chain privileged roles concentrated in a single hot EOA / deploy diverges from documented governance",
+    "severity": "High",
+    "detection": "See KnownBugs.md P66 detection rule.",
+    "canonicalFix": "See KnownBugs.md P66 canonical fix.",
+    "referenceBot": "ACP_ChainlinkBot ReputationRegistry (Base mainnet) — B11"
+  },
+  {
+    "id": "P67",
+    "title": "Security control wired into dead/unused code; the live path bypasses it (false-fix)",
+    "severity": "Medium",
+    "detection": "See KnownBugs.md P67 detection rule.",
+    "canonicalFix": "See KnownBugs.md P67 canonical fix.",
+    "referenceBot": "ACP_ChainlinkBot webhook-secret cipher (POST /subscriptions vs SubscriptionRepository) — M1"
+  },
+  {
+    "id": "P68",
+    "title": "Custom AggregatorV3 feed diverges from Chainlink consumer staleness semantics",
+    "severity": "Medium",
+    "detection": "See KnownBugs.md P68 detection rule.",
+    "canonicalFix": "See KnownBugs.md P68 canonical fix.",
+    "referenceBot": "ACP_ChainlinkBot ReputationAggregator — M4"
+  },
+  {
+    "id": "B10",
+    "title": "DON-Hosted Secrets not bound to the paying buyer (cross-tenant secret exfiltration) (ChainlinkBot)",
+    "severity": "High",
+    "detection": "See KnownBugs.md B10 detection rule.",
+    "canonicalFix": "See KnownBugs.md B10 canonical fix.",
+    "referenceBot": "ACP_ChainlinkBot upload_secrets/functions_secrets + encode.ts — FIXED 2026-06-14"
+  },
+  {
+    "id": "B11",
+    "title": "ReputationRegistry mainnet deploy concentrates all roles in one shared hot EOA (ChainlinkBot)",
+    "severity": "High",
+    "detection": "See KnownBugs.md B11 detection rule.",
+    "canonicalFix": "See KnownBugs.md B11 canonical fix.",
+    "referenceBot": "ACP_ChainlinkBot contracts/broadcast/DeployBaseMainnet — OPEN (ops rotation)"
+  },
+  {
+    "id": "B12",
+    "title": "VRF draw refunded after the request is already broadcast on-chain (ChainlinkBot)",
+    "severity": "Medium",
+    "detection": "See KnownBugs.md B12 detection rule.",
+    "canonicalFix": "See KnownBugs.md B12 canonical fix.",
+    "referenceBot": "ACP_ChainlinkBot VrfSubscriptionService + NethereumVrfRequester — FIXED 2026-06-14"
   }
 ]
